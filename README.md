@@ -44,7 +44,7 @@ optional arguments:
   --w W       Wait time in seconds between refreshes. Adjust accordingly to the expected time of the iteration. If the time is up and there no new classification results plots will freeze
 ```
 
-Double click the .py file and chose the directory where the classification or refinement has already been started. Opened window will update as soon as the iteration is finished.
+Run from command line with the destnation directory. Browser window should open with the classification statistics and will update as soon as the iteration is finished.
 
 ---Update---
 
