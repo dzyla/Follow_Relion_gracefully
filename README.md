@@ -1,4 +1,4 @@
-# Relion-2D-and-3D-live-preview
+# Relion-2D-and-3D-live-preview (aka Follow Relion Gracefully [FRG])
 New script to follow Relion classification in a browser!
 
 Simple python script which enables to follow the progress of 2D/3D classification and refinement in Relion.
