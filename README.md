@@ -1,4 +1,4 @@
-# Relion-2D-and-3D-live-preview (aka Follow Relion Gracefully)
+# Follow Relion Gracefully
 New script to follow Relion classification in a browser!
 
 Simple python script which enables following the progress of 2D/3D classification and refinement in Relion.
@@ -29,12 +29,12 @@ pip install numpy matplotlib pandas gemmi mrcfile plotly scikit-image
 ```
 Run script from the command line:
 ```
-python3 relion-2D-and-3D-live-preview.py --i /path/to/the/classification/ --w 300
+python3 follow_relion_gracefully.py --i /path/to/the/classification/ --w 300
 ```
 Help can be accessed by:
 ```
-python relion-2D-and-3D-live-preview.py  --h
-usage: relion-2D-and-3D-live-preview.py [-h] [--i I] [--w W]
+python follow_relion_gracefully.py  --h
+usage: follow_relion_gracefully.py [-h] [--i I] [--w W]
 
 Real-time preview Relion classification output from Class2D, Class3D, and Refine3D jobs, including volume projections, class distributions, and estimated resolution plots
 
