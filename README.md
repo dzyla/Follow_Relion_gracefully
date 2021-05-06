@@ -25,7 +25,7 @@ source new-env/bin/activate
 ```
 Install packages:
 ```
-pip install numpy matplotlib pandas gemmi mrcfile plotly skimage
+pip install numpy matplotlib pandas gemmi mrcfile plotly scikit-image
 ```
 Run script from command line:
 ```
