@@ -55,6 +55,7 @@ Run from command line with the destnation directory. Browser window should open 
 + Changed from Matplotlib to Plotly and web browser interface
 + Added extra dependencies (Plotly and scikit-image)
 + Shows 2D classification, 3D classification, Initial Model and 3D refinement
-+ 2D/3D and Initial model are shown as projections from 3 axes
++ 2D shows classes ordered by class number
++ 3D classification and Initial model are shown as projections from 3 axes
 + 3D refinement show 3D map (scaled to 100px)
 + Automatic updates in browser!
