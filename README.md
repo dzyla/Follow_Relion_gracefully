@@ -48,23 +48,13 @@ Double click the .py file and chose the directory where the classification or re
 
 ---Update---
 
-200420: Now single script avaiable for all classification runs, including plotting of class distribution and class estimated resolution. All previous scripts are obsolete. 
+200420: 
++ Now single script avaiable for all classification runs, including plotting of class distribution and class estimated resolution. All previous scripts are obsolete. 
 
-~~191010: class2D: now preview also works for the runs which were continued (run_ctXX_itXX...).~~
-
-
-
-2D classification preview:
-![alt text](https://github.com/dzyla/Relion_realtime_preview/blob/master/cls_projections.png
-)
-
-
-3D classification preview:
-![alt text](https://github.com/dzyla/Relion_realtime_preview/blob/master/cls_3d.png
-)
-
-Class distribution and estimated resolution plots:
-![alt text](https://github.com/dzyla/Relion_realtime_preview/blob/master/class_dist.png
-)
-![alt text](https://github.com/dzyla/Relion_realtime_preview/blob/master/class_res.png
-)
+210505: Major update and V2
++ Changed from Matplotlib to Plotly and web browser interface
++ Added extra dependencies (Plotly and scikit-image)
++ Shows 2D classification, 3D classification, Initial Model and 3D refinement
++ 2D/3D and Initial model are shown as projections from 3 axes
++ 3D refinement show 3D map (scaled to 100px)
++ Automatic updates in browser!
