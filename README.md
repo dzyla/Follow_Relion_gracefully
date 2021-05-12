@@ -59,3 +59,15 @@ Run from the command line with the destination directory. The browser window sho
 + 3D classification and Initial model are shown as projections from 3 axes
 + 3D refinement show 3D map (scaled to 100px)
 + Automatic updates in the browser!
+
+
+https://user-images.githubusercontent.com/20625527/117906929-b3667780-b28a-11eb-8334-e14789121b95.mp4
+
+
+
+![Screenshot from 2021-05-11 18-53-12](https://user-images.githubusercontent.com/20625527/117906888-9e89e400-b28a-11eb-9067-43a533543836.png)
+![Screenshot from 2021-05-11 18-53-56](https://user-images.githubusercontent.com/20625527/117906898-a21d6b00-b28a-11eb-82ff-e9f1400594e8.png)
+![Screenshot from 2021-05-11 18-54-39](https://user-images.githubusercontent.com/20625527/117906913-ab0e3c80-b28a-11eb-97dc-a650cb979c0d.png)
+
+
+
