@@ -30,6 +30,7 @@ python3 relion-2D-and-3D-live-preview .py --i /path/to/the/classification/ --w 3
 Written and maintained by Dawid Zyla, La Jolla Institute for Immunology
 
 v0.1 --> moved plot display to plotly and web browser. Added angular distribution plots.
+v0.11 --> removed plotting histogram in classification 2D that was for the test purposes. Ups.
 
 Under Non-Profit Open Software License 3.0 (NPOSL-3.0)
 
@@ -545,8 +546,6 @@ if __name__ == '__main__':
 
                     # Plot angular distribution
                 rot, tilt, psi = get_angles(path)
-                plt.hist(psi)
-                plt.show()
                 fig.add_histogram(x=psi, row=4, col=2, nbinsx=50)
 
                 # Show classes preview
