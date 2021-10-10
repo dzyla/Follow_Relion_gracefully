@@ -1,0 +1,61 @@
+{{ block "header" . }}
+<head>
+    <style>
+        a.heading1 {
+            line-height: 1.2;
+            font-weight: bold;
+            text-transform: uppercase;
+            color: white;
+            background: #5335cf;
+            padding: 10px 10px;
+
+            /* background: linear-gradient(135deg, #5335cf 0%, #de005e 25%, #f66e48 50%, #de005e 75%, #5335cf 100%); */
+            /* background-size: 400%; */
+            /* -webkit-background-clip: text; */
+            /* -webkit-text-fill-color: transparent;
+            animation: animate 10s linear infinite;
+              @keyframes animate {
+                to{
+                  background-position: 400%;
+                }
+              } */
+
+        }
+        a.heading1{
+            transition: width 2s, height 4s;;
+        }
+
+        a.heading1:hover {
+            color: #5335cf;
+            background: white;
+            padding: 7px 7px;
+            vertical-align: bottom;
+            transition-timing-function: ease;
+            font-weight: bold;
+            border-top: #5335cf;
+            border-left: #5335cf;
+            border-right: #5335cf;
+            border-width: 3px;
+            border-style: solid;
+            border-bottom-style: none;
+
+
+        }
+    </style>
+</head>
+
+<div class="header">
+    <h1>
+        <a class="heading1" href="{{ .Site.BaseURL | relLangURL }}">{{- .Site.Title -}}</a>
+        <div class="header-menu">
+            {{- range .Site.Menus.main -}}
+            {{ if eq (hasPrefix .URL "mailto:") true }}
+            <a class="heading1" href="{{ .URL }}">{{- .Name -}}</a>
+            {{ else }}
+            <a class="heading1" href="{{ .URL | relLangURL }}">{{- .Name -}}</a>
+            {{- end -}}
+            {{ end }}
+        </div>
+    </h1>
+</div>
+{{ end }}

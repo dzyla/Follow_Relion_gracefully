@@ -221,7 +221,7 @@ def plot_3dclasses(files):
 
 def get_angles(path_):
     '''
-    Euler angles: (rot,tilt,psi) = (φ,θ,ψ). Positive rotations of object are clockwise. Projection direction is
+    Euler angles: (rot,tilt,psi) = (?,?,?). Positive rotations of object are clockwise. Projection direction is
     defined by (rot,tilt). Psi is in-plane rotation for tilted image. For untilted rot=psi=in-plane rotation.
     Angles in a STAR file rotate the reference into observations (i.e. particle image), while translations shift
     observations into the reference projection.
