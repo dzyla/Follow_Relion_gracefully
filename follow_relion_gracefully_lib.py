@@ -13,11 +13,10 @@ from gemmi import cif
 from skimage import measure, exposure
 from skimage.transform import rescale
 
+
 PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 PLOT_HEIGHT = 500
 MAX_MICS = 30
-
-HOSTNAME='https://dzyla.github.io/Follow_Relion_gracefully/'
 
 def parse_star_model(file_path, loop_name):
     doc = cif.read_file(file_path)
@@ -267,7 +266,7 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
         cls2d_dist_name_json)
     fig_.write_json(plotly_file)
 
-    plotly_string = write_plot_get_shortcode(fig, cls2d_dist_name_json, job_name, HUGO_FOLDER)
+    plotly_string = write_plot_get_shortcode(fig_, cls2d_dist_name_json, job_name, HUGO_FOLDER)
     cls2d_shortcodes.append(plotly_string)
 
     '''Class resolution plot'''
@@ -292,7 +291,7 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
         cls2d_res_name_json)
     fig_.write_json(plotly_file)
 
-    plotly_string = write_plot_get_shortcode(fig, cls2d_res_name_json, job_name, HUGO_FOLDER)
+    plotly_string = write_plot_get_shortcode(fig_, cls2d_res_name_json, job_name, HUGO_FOLDER)
     cls2d_shortcodes.append(plotly_string)
 
 
@@ -724,6 +723,7 @@ def plot_volume(fig_, volume_):
 
 
 def write_plot_get_shortcode(fig, json_name, job_name, HUGO_FOLDER, fig_height=600):
+    from follow_relion_gracefully_run import HOSTNAME
     name_json = json_name + job_name.replace('/', '_')
     plotly_file = HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER + "{}.json".format(
         name_json)

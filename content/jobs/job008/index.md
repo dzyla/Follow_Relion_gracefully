@@ -1,16 +1,16 @@
 
----
-title: job008
-jobname: Class2D/job008/
-status: Succeeded
-date: 2021-05-25 09:27:23
-time: 09:27:23
-categories: [Class2D]
----
-
-#### Job alias: None
-
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job008/cls2d1_Class2D_job008_Class2D_job008_.json" height="800px" >}}
+    ---
+    title: job008
+    jobname: Class2D/job008/
+    status: Succeeded
+    date: 2021-05-25 09:27:23
+    time: 09:27:23
+    categories: [Class2D]
+    ---
+    
+    #### Job alias: None
+    
+    {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job008/cls2d1_Class2D_job008_Class2D_job008_.json" height="800px" >}}
 {{<rawhtml >}} 
 
     <div class="center">
@@ -34,10 +34,10 @@ categories: [Class2D]
      {{< /rawhtml >}}
 {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job008/cls2d_dist_Class2D_job008_Class2D_job008_.json" height="600px" >}}
 {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job008/cls2d_res_Class2D_job008_Class2D_job008_.json" height="600px" >}}
-
-#### Job command(s):
-
-
+    
+    #### Job command(s):
+    
+    
  
  Executing new job on Tue May 25 17:24:51 2021
  
@@ -47,4 +47,4 @@ which relion_refine_mpi --o Class2D/job008/run --i Extract/job007/particles.star
  
  
 
-
+    

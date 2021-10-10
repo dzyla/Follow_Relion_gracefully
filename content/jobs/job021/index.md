@@ -1,20 +1,20 @@
 
----
-title: job021
-jobname: PostProcess/job021/
-status: Succeeded
-date: 2021-06-01 08:27:30
-time: 08:27:30
-categories: [PostProcess]
----
-
-#### Job alias: None
-
-
-
-#### Job command(s):
-
-
+    ---
+    title: job021
+    jobname: PostProcess/job021/
+    status: Succeeded
+    date: 2021-06-01 08:27:30
+    time: 08:27:30
+    categories: [PostProcess]
+    ---
+    
+    #### Job alias: None
+    
+    
+    
+    #### Job command(s):
+    
+    
  
  Executing new job on Tue Jun  1 16:27:18 2021
  
@@ -24,4 +24,4 @@ which relion_postprocess --mask MaskCreate/job020/mask.mrc --i Refine3D/job019/r
  
  
 
-
+    

@@ -1,16 +1,16 @@
 
----
-title: job015
-jobname: InitialModel/job015/
-status: Succeeded
-date: 2021-06-01 06:47:06
-time: 06:47:06
-categories: [InitialModel]
----
-
-#### Job alias: None
-
-#### Class 0:
+    ---
+    title: job015
+    jobname: InitialModel/job015/
+    status: Succeeded
+    date: 2021-06-01 06:47:06
+    time: 06:47:06
+    categories: [InitialModel]
+    ---
+    
+    #### Job alias: None
+    
+    #### Class 0:
 {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job015/cls3d_model0_InitialModel_job015_.json" height="600px" >}}
 #### Class Projections:
 {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job015/cls3d_projection_InitialModel_job015_.json" height="800px" >}}
@@ -18,10 +18,10 @@ categories: [InitialModel]
 {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job015/cls3d_res_InitialModel_job015_.json" height="500px" >}}
 {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job015/cls3d_psi_rot_InitialModel_job015_.json" height="500px" >}}
 {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job015/cls3d_psi_tilt_InitialModel_job015_.json" height="500px" >}}
-
-#### Job command(s):
-
-
+    
+    #### Job command(s):
+    
+    
  
  Executing new job on Tue Jun  1 14:45:43 2021
  
@@ -37,4 +37,4 @@ touch InitialModel/job015/RELION_JOB_EXIT_SUCCESS
  
  
 
-
+    

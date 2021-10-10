@@ -1,20 +1,20 @@
 
----
-title: job028
-jobname: Polish/job028/
-status: Succeeded
-date: 2021-06-02 01:01:03
-time: 01:01:03
-categories: [Polish]
----
-
-#### Job alias: None
-
-Ghostscript not found
-
-#### Job command(s):
-
-
+    ---
+    title: job028
+    jobname: Polish/job028/
+    status: Succeeded
+    date: 2021-06-02 01:01:03
+    time: 01:01:03
+    categories: [Polish]
+    ---
+    
+    #### Job alias: None
+    
+    Ghostscript not found
+    
+    #### Job command(s):
+    
+    
  
  Executing new job on Wed Jun  2 08:42:09 2021
  
@@ -24,4 +24,4 @@ which relion_motion_refine --i Refine3D/job025/run_data.star --f PostProcess/job
  
  
 
-
+    

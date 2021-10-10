@@ -1,20 +1,20 @@
 
----
-title: job014
-jobname: Select/job014/
-status: Succeeded
-date: 2021-06-01 06:44:09
-time: 06:44:09
-categories: [Select]
----
-
-#### Job alias: None
-
-
-
-#### Job command(s):
-
-
+    ---
+    title: job014
+    jobname: Select/job014/
+    status: Succeeded
+    date: 2021-06-01 06:44:09
+    time: 06:44:09
+    categories: [Select]
+    ---
+    
+    #### Job alias: None
+    
+    
+    
+    #### Job command(s):
+    
+    
  
  Executing new job on Tue Jun  1 14:42:46 2021
  
@@ -24,4 +24,4 @@ which relion_class_ranker --opt Class2D/job013/run_it100_optimiser.star --o Sele
  
  
 
-
+    
