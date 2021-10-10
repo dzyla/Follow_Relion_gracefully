@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes"?><rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom"><channel><title>AutoPick on Follow Relion Gracefully</title><link>https:///categories/autopick/</link><description>Recent content in AutoPick on Follow Relion Gracefully</description><generator>Hugo -- gohugo.io</generator><language>en-us</language><copyright>2021 — Follow Relion Gracefully</copyright><lastBuildDate>Wed, 26 May 2021 06:58:50 +0000</lastBuildDate><atom:link href="https:///categories/autopick/index.xml" rel="self" type="application/rss+xml"/><item><title>job011</title><link>https:///jobs/job011/</link><pubDate>Wed, 26 May 2021 06:58:50 +0000</pubDate><guid>https:///jobs/job011/</guid><description>Job alias: None Preview of random extracted particles:
+0
+var val = document.getElementById("valR").value;
+document.getElementById("range").innerHTML=val;
+document.getElementById("img").src = val + ".jpg";
+function showVal(newVal){
+document.getElementById("range").innerHTML=newVal;
+document.getElementById("img").src = newVal+ ".jpg";
+}
+Job command(s): Executing new job on Wed May 26 14:54:48 2021
+with the following command(s):
+which relion_autopick &amp;ndash;i CtfFind/job003/micrographs_ctf.star &amp;ndash;odir AutoPick/job011/ &amp;ndash;pickname autopick &amp;ndash;topaz_exe /public/EM/RELION/topaz &amp;ndash;topaz_nr_particles 300 &amp;ndash;particle_diameter 180 &amp;ndash;topaz_extract &amp;ndash;topaz_model AutoPick/job010/model_epoch10.sav &amp;ndash;gpu &amp;ldquo;1&amp;rdquo; &amp;ndash;pipeline_control AutoPick/job011/</description></item><item><title>job010</title><link>https:///jobs/job010/</link><pubDate>Wed, 26 May 2021 06:53:21 +0000</pubDate><guid>https:///jobs/job010/</guid><description>Job alias: None Something went wrong
+Job command(s): Executing new job on Wed May 26 14:31:08 2021
+with the following command(s):
+which relion_autopick &amp;ndash;i Select/job005/micrographs_split1.star &amp;ndash;odir AutoPick/job010/ &amp;ndash;pickname autopick &amp;ndash;topaz_exe /public/EM/RELION/topaz &amp;ndash;topaz_nr_particles 300 &amp;ndash;particle_diameter 180 &amp;ndash;topaz_train &amp;ndash;topaz_train_parts Select/job009/particles.star &amp;ndash;gpu &amp;ldquo;1&amp;rdquo; &amp;ndash;pipeline_control AutoPick/job010/</description></item><item><title>job006</title><link>https:///jobs/job006/</link><pubDate>Tue, 25 May 2021 09:11:48 +0000</pubDate><guid>https:///jobs/job006/</guid><description>Job alias: None Preview of random extracted particles:
+0
+var val = document.getElementById("valR").value;
+document.getElementById("range").innerHTML=val;
+document.getElementById("img").src = val + ".jpg";
+function showVal(newVal){
+document.getElementById("range").innerHTML=newVal;
+document.getElementById("img").src = newVal+ ".jpg";
+}
+Job command(s): Executing new job on Tue May 25 17:11:42 2021
+with the following command(s):
+which relion_autopick_mpi &amp;ndash;i Select/job005/micrographs_split1.star &amp;ndash;odir AutoPick/job006/ &amp;ndash;pickname autopick &amp;ndash;LoG &amp;ndash;LoG_diam_min 150 &amp;ndash;LoG_diam_max 180 &amp;ndash;shrink 0 &amp;ndash;lowpass 20 &amp;ndash;LoG_adjust_threshold 0 &amp;ndash;LoG_upper_threshold 5 &amp;ndash;pipeline_control AutoPick/job006/</description></item></channel></rss>
