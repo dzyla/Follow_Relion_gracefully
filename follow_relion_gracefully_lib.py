@@ -17,6 +17,7 @@ PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 PLOT_HEIGHT = 500
 MAX_MICS = 30
 
+HOSTNAME='https://dzyla.github.io/Follow_Relion_gracefully/'
 
 def parse_star_model(file_path, loop_name):
     doc = cif.read_file(file_path)
@@ -201,13 +202,11 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
 
     cls2d_height = 600 if n_classes_ < 30 else 800
 
-    cls2d_plotly_string = '((< plotly json="/jobs/{}/{}" height="XXXpx" >))'.format(job_name.split('/')[1],
-                                                                                    "{}.json".format(
-                                                                                        cls2d_name_json)).replace('XXX',
-                                                                                                                  str(cls2d_height))
-    cls2d_plotly_string = cls2d_plotly_string.replace('((', '{{').replace('))', '}}')
+    name_json = 'cls2d1_' + job_name.replace('/', '_')
+    plotly_string = write_plot_get_shortcode(fig, name_json, job_name, HUGO_FOLDER, fig_height=cls2d_height)
 
-    cls2d_shortcodes.append(cls2d_plotly_string)
+
+    cls2d_shortcodes.append(plotly_string)
 
     '''Save 2D classes as images with slider'''
 
@@ -268,12 +267,8 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
         cls2d_dist_name_json)
     fig_.write_json(plotly_file)
 
-    cls2d_dist_plotly_string = '((< plotly json="/jobs/{}/{}" height="600px" >))'.format(job_name.split('/')[1],
-                                                                                         "{}.json".format(
-                                                                                             cls2d_dist_name_json))
-    cls2d_dist_plotly_string = cls2d_dist_plotly_string.replace('((', '{{').replace('))', '}}')
-
-    cls2d_shortcodes.append(cls2d_dist_plotly_string)
+    plotly_string = write_plot_get_shortcode(fig, cls2d_dist_name_json, job_name, HUGO_FOLDER)
+    cls2d_shortcodes.append(plotly_string)
 
     '''Class resolution plot'''
 
@@ -297,12 +292,9 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
         cls2d_res_name_json)
     fig_.write_json(plotly_file)
 
-    cls2d_res_plotly_string = '((< plotly json="/jobs/{}/{}" height="600px" >))'.format(job_name.split('/')[1],
-                                                                                        "{}.json".format(
-                                                                                            cls2d_res_name_json))
-    cls2d_res_plotly_string = cls2d_res_plotly_string.replace('((', '{{').replace('))', '}}')
+    plotly_string = write_plot_get_shortcode(fig, cls2d_res_name_json, job_name, HUGO_FOLDER)
+    cls2d_shortcodes.append(plotly_string)
 
-    cls2d_shortcodes.append(cls2d_res_plotly_string)
 
     return cls2d_shortcodes
 
@@ -398,12 +390,6 @@ def mask_in_fft(img, radius):
     return img_masked
 
 
-def adjust_contrast(img, p1=2, p2=98):
-    p1, p2 = np.percentile(img, (p1, p2))
-    img = exposure.rescale_intensity(img, in_range=(p1, p2))
-    return img
-
-
 def show_random_particles(star_path, project_path, random_size=100, r=1, adj_contrast=False):
     star = parse_star(star_path)[1]
     data_shape = star.shape[0]
@@ -431,24 +417,6 @@ def show_random_particles(star_path, project_path, random_size=100, r=1, adj_con
         #     pass
 
     return particle_array
-
-
-def plot_extract_ply(particle_list, HUGO_FOLDER, job_name):
-    fig = px.imshow(np.array(particle_list), animation_frame=0, binary_string=True)
-
-    extr_name_json = 'extr_' + job_name.replace('/', '_')
-
-    plotly_file = HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER + "{}.json".format(
-        extr_name_json)
-    fig.write_json(plotly_file)
-
-    extr_plotly_string = '((< plotly json="/jobs/{}/{}" height="600px" >))'.format(job_name.split('/')[1],
-                                                                                   "{}.json".format(
-                                                                                       extr_name_json))
-
-    extr_plotly_string = extr_plotly_string.replace('((', '{{').replace('))', '}}')
-
-    return extr_plotly_string
 
 
 def plot_extract_js(particle_list, HUGO_FOLDER, job_name):
@@ -491,6 +459,8 @@ def plot_extract_js(particle_list, HUGO_FOLDER, job_name):
 def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
     import plotly.express as px
 
+    shortcodes = []
+
     reduced_ctfcorrected = starctf[1]
 
     '''Defocus / index'''
@@ -502,7 +472,7 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
 
     ctf_name_json = 'ctffind_' + job_name.replace('/', '_')
 
-    ctf_plotly_string0 = write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500)
+    shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
     '''Max Res / index'''
     fig = px.line(x=range(0, reduced_ctfcorrected.shape[0]),
@@ -514,7 +484,7 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
 
     ctf_name_json = 'ctffind1_' + job_name.replace('/', '_')
 
-    ctf_plotly_string1 = write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500)
+    shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
     '''Defocus hist'''
 
@@ -525,7 +495,7 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
 
     ctf_name_json = 'ctffind4_' + job_name.replace('/', '_')
 
-    ctf_plotly_string4 = write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500)
+    shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
     '''Astigmatism hist'''
 
@@ -536,7 +506,7 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
 
     ctf_name_json = 'ctffind5_' + job_name.replace('/', '_')
 
-    ctf_plotly_string5 = write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500)
+    shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
     '''MaxRes hist'''
 
@@ -547,7 +517,7 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
 
     ctf_name_json = 'ctffind6_' + job_name.replace('/', '_')
 
-    ctf_plotly_string6 = write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500)
+    shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
     '''Defocus / Max res'''
     fig = px.density_heatmap(x=reduced_ctfcorrected['_rlnDefocusV'].astype(float),
@@ -558,7 +528,7 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
 
     ctf_name_json = 'ctffind2_' + job_name.replace('/', '_')
 
-    ctf_plotly_string2 = write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500)
+    shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
     '''Defocus / Max res'''
     fig = px.density_heatmap(x=reduced_ctfcorrected['_rlnDefocusV'].astype(float),
@@ -569,10 +539,9 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
 
     ctf_name_json = 'ctffind3_' + job_name.replace('/', '_')
 
-    ctf_plotly_string3 = write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500)
+    shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
-    return [ctf_plotly_string0, ctf_plotly_string1, ctf_plotly_string4, ctf_plotly_string5,
-            ctf_plotly_string6, ctf_plotly_string2, ctf_plotly_string3]
+    return shortcodes
 
 
 def plot_motioncorr_stats(star, HUGO_FOLDER, job_name):
@@ -760,7 +729,7 @@ def write_plot_get_shortcode(fig, json_name, job_name, HUGO_FOLDER, fig_height=6
         name_json)
     fig.write_json(plotly_file)
 
-    plotly_string = '((< plotly json="/jobs/{}/{}" height="{}px" >))'.format(job_name.split('/')[1],
+    plotly_string = '((< plotly json="{}jobs/{}/{}" height="{}px" >))'.format(HOSTNAME,job_name.split('/')[1],
                                                                              "{}.json".format(
                                                                                  name_json), fig_height)
     shortcode = plotly_string.replace('((', '{{').replace('))', '}}')

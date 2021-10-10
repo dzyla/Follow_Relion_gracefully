@@ -1,9 +1,6 @@
-import glob
 from joblib import Parallel, delayed
-import pandas as pd
 from follow_relion_gracefully import *
-from relion_helper import *
-from pyhuion_lib import *
+from follow_relion_gracefully_lib import *
 import multiprocessing
 
 # Change the folder set if Hugo working on windows / linux.
@@ -17,7 +14,7 @@ FORCE_PROCESS = False
 
 # Check how many processors available
 N_CPUs = multiprocessing.cpu_count()
-#N_CPUs = 1 #Overide for debugging
+N_CPUs = 2 #Overide for debugging
 
 # Load pipeline star and check processes
 pipeline = FOLDER + 'default_pipeline.star'
