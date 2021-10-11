@@ -1,16 +1,16 @@
 
-    ---
-    title: job004
-    jobname: ManualPick/job004/
-    status: Succeeded
-    date: 2021-05-25 08:50:33
-    time: 08:50:33
-    categories: [ManualPick]
-    ---
-    
-    #### Job alias: None
-    
-    {{<rawhtml >}} 
+---
+title: job004
+jobname: ManualPick/job004/
+status: Succeeded
+date: 2021-05-25 08:50:33
+time: 08:50:33
+categories: [ManualPick]
+---
+
+#### Job alias: None
+
+{{<rawhtml >}} 
 
 
     <div class="center">
@@ -32,10 +32,10 @@
     </script>
     <br>
      {{< /rawhtml >}}
-    
-    #### Job command(s):
-    
-    
+
+#### Job command(s):
+
+
  
  Executing new job on Tue May 25 16:48:27 2021
  
@@ -54,4 +54,4 @@ which relion_manualpick --i CtfFind/job003/micrographs_ctf.star --odir ManualPic
  
  
 
-    
+

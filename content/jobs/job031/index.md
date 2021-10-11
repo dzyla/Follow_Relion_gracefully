@@ -1,20 +1,20 @@
 
-    ---
-    title: job031
-    jobname: LocalRes/job031/
-    status: Succeeded
-    date: 2021-06-02 01:36:35
-    time: 01:36:35
-    categories: [LocalRes]
-    ---
-    
-    #### Job alias: None
-    
-    
-    
-    #### Job command(s):
-    
-    
+---
+title: job031
+jobname: LocalRes/job031/
+status: Succeeded
+date: 2021-06-02 01:36:35
+time: 01:36:35
+categories: [LocalRes]
+---
+
+#### Job alias: None
+
+
+
+#### Job command(s):
+
+
  
  Executing new job on Wed Jun  2 09:29:37 2021
  
@@ -24,4 +24,4 @@ which relion_postprocess_mpi --locres --i Refine3D/job029/run_half1_class001_unf
  
  
 
-    
+

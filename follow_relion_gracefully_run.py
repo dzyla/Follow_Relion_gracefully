@@ -3,6 +3,13 @@ from follow_relion_gracefully_lib import *
 import multiprocessing
 import time
 
+'''
+Written by Dawid Zyla, LJI under Non-Profit Open Software License 3.0 (NPOSL-3.0).
+Github: https://github.com/dzyla/Follow_Relion_gracefully/
+v3
+'''
+
+
 # Change the folder set if Hugo working on windows / linux.
 PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 
@@ -11,21 +18,42 @@ FOLDER = 'g:\\cryoEM\\relion40_tutorial_precalculated_results\\'
 HUGO_FOLDER = 'content/jobs/'
 
 # Force process of all folders, even if the same. Good for development.
-FORCE_PROCESS = True
+FORCE_PROCESS = False
 
 if __name__ == "__main__":
     # Check how many processors available
     N_CPUs = multiprocessing.cpu_count()
-    N_CPUs = 2 #Overide for debugging
+    N_CPUs = 1 #Overide for debugging
     print('Using {} CPUs for processing!'.format(N_CPUs))
 
     # Load pipeline star and check processes
     pipeline = FOLDER + 'default_pipeline.star'
 
+    # Change hostname in the config.toml file
+    config_file = open('config.toml', 'r')
+    config_new = []
+    save_new_config = False
+    config_ = config_file.readlines()
+    config_file.close()
+    for line in config_:
+        if 'baseurl' in line:
+            if line != 'baseurl = "{}"\n'.format(HOSTNAME):
+                line = 'baseurl = "{}"\n'.format(HOSTNAME)
+                save_new_config = True
 
+        config_new.append(line)
+
+    if save_new_config:
+        config_new_file = open('config.toml', 'w')
+        for line in config_new:
+            print(line, file=config_new_file, end='')
+
+
+    # Define the function for parallel execution
     def run_job(quequing_elem_):
         job_name, n = quequing_elem_
 
+        # Define the path for each job for Hugo server
         path = HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER
         os.makedirs(path, mode=0o777, exist_ok=True)
 
@@ -83,7 +111,7 @@ if __name__ == "__main__":
             if job_name in node:
                 node_files.append(node)
 
-        # Get 2D class star files
+        # Plot accordingly
         if process_job or FORCE_PROCESS:
             plotly_string = ''
             print(job_name)
@@ -99,14 +127,13 @@ if __name__ == "__main__":
 
             elif job_name.split('/')[0] == 'Extract':
 
-                # For relion 3 only single output from Extract
+                # For Relion 3 only single output from Extract
                 if len(node_files) == 1:
                     if os.path.exists(FOLDER + node_files[0]):
                         star_path = FOLDER + node_files[0]
                         rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1, adj_contrast=False)
 
                         plotly_string = plot_extract_js(rnd_particles, HUGO_FOLDER, job_name)
-                        # plotly_string = '\n'.join(plotly_string)
 
                 # Relion 4 has more nodes?
                 elif len(node_files) > 1:
@@ -117,7 +144,7 @@ if __name__ == "__main__":
                         rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1, adj_contrast=False)
 
                         plotly_string = plot_extract_js(rnd_particles, HUGO_FOLDER, job_name)
-                        # plotly_string = '\n'.join(plotly_string)
+
 
             elif job_name.split('/')[0] == 'CtfFind':
 
@@ -173,26 +200,24 @@ if __name__ == "__main__":
             file = open(path + 'index.md', mode='w')
 
 
-
-
             print('''
-    ---
-    title: {}
-    jobname: {}
-    status: {}
-    date: {}
-    time: {}
-    categories: [{}]
-    ---
-    
-    #### Job alias: {}
-    
-    {}
-    
-    #### Job command(s):
-    
-    {}
-    '''.format(job_name.split('/')[1],
+---
+title: {}
+jobname: {}
+status: {}
+date: {}
+time: {}
+categories: [{}]
+---
+
+#### Job alias: {}
+
+{}
+
+#### Job command(s):
+
+{}
+'''.format(job_name.split('/')[1],
                    job_name,
                    process_status[n],
                    modificationDate,
@@ -228,6 +253,8 @@ if __name__ == "__main__":
     process_alias = pipeline_star['pipeline_processes']['_rlnPipeLineProcessAlias']
 
 
-
+    # Define the data queue for parallel execution
     data_queue = np.stack([process_name, np.arange(0, len(process_name))], axis=1)
+
+    # Execute in parallel using N_CPUs
     results = Parallel(n_jobs=N_CPUs)(delayed(run_job)(queue_element) for queue_element in data_queue)

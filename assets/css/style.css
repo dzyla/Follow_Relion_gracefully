@@ -121,3 +121,22 @@ hr {
 .arrow-left {
   transform: rotate(-135deg);
 }
+
+@media(max-width:800px) {
+ body {
+  max-width:100%;
+  line-height:1.6;
+   margin:20px;
+ line-height:1.6;
+ font-size:15px;
+ color:#444;
+ padding:0 0px
+ }
+  div.header h1 {
+ padding-top:0;
+ padding-bottom:8px;
+ margin-bottom:24px;
+ font-size:12px;
+ font-weight:400;
+}
+}

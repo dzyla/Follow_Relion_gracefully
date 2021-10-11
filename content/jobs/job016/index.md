@@ -1,33 +1,33 @@
 
-    ---
-    title: job016
-    jobname: Class3D/job016/
-    status: Succeeded
-    date: 2021-06-01 07:23:39
-    time: 07:23:39
-    categories: [Class3D]
-    ---
-    
-    #### Job alias: None
-    
-    #### Class 0:
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_model0_Class3D_job016_.json" height="600px" >}}
+---
+title: job016
+jobname: Class3D/job016/
+status: Succeeded
+date: 2021-06-01 07:23:39
+time: 07:23:39
+categories: [Class3D]
+---
+
+#### Job alias: None
+
+#### Class 0:
+{{< plotly json="/jobs/job016/cls3d_model0_Class3D_job016_.json" height="600px" >}}
 #### Class 1:
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_model1_Class3D_job016_.json" height="600px" >}}
+{{< plotly json="/jobs/job016/cls3d_model1_Class3D_job016_.json" height="600px" >}}
 #### Class 2:
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_model2_Class3D_job016_.json" height="600px" >}}
+{{< plotly json="/jobs/job016/cls3d_model2_Class3D_job016_.json" height="600px" >}}
 #### Class 3:
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_model3_Class3D_job016_.json" height="600px" >}}
+{{< plotly json="/jobs/job016/cls3d_model3_Class3D_job016_.json" height="600px" >}}
 #### Class Projections:
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_projection_Class3D_job016_.json" height="800px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_dist_Class3D_job016_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_res_Class3D_job016_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_psi_rot_Class3D_job016_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_psi_tilt_Class3D_job016_.json" height="500px" >}}
-    
-    #### Job command(s):
-    
-    
+{{< plotly json="/jobs/job016/cls3d_projection_Class3D_job016_.json" height="800px" >}}
+{{< plotly json="/jobs/job016/cls3d_dist_Class3D_job016_.json" height="500px" >}}
+{{< plotly json="/jobs/job016/cls3d_res_Class3D_job016_.json" height="500px" >}}
+{{< plotly json="/jobs/job016/cls3d_psi_rot_Class3D_job016_.json" height="500px" >}}
+{{< plotly json="/jobs/job016/cls3d_psi_tilt_Class3D_job016_.json" height="500px" >}}
+
+#### Job command(s):
+
+
  
  Executing new job on Tue Jun  1 14:47:32 2021
  
@@ -37,4 +37,4 @@ which relion_refine_mpi --o Class3D/job016/run --i Select/job014/particles.star 
  
  
 
-    
+

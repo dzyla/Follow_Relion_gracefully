@@ -1,16 +1,16 @@
 
-    ---
-    title: job007
-    jobname: Extract/job007/
-    status: Succeeded
-    date: 2021-05-25 09:14:25
-    time: 09:14:25
-    categories: [Extract]
-    ---
-    
-    #### Job alias: None
-    
-    {{<rawhtml >}} 
+---
+title: job007
+jobname: Extract/job007/
+status: Succeeded
+date: 2021-05-25 09:14:25
+time: 09:14:25
+categories: [Extract]
+---
+
+#### Job alias: None
+
+{{<rawhtml >}} 
    
 <div class="center">
 <p>Preview of random extracted particles:<p>
@@ -31,10 +31,10 @@
 </script>
 <br>
  {{< /rawhtml >}}
-    
-    #### Job command(s):
-    
-    
+
+#### Job command(s):
+
+
  
  Executing new job on Tue May 25 17:14:13 2021
  
@@ -44,4 +44,4 @@ which relion_preprocess --i CtfFind/job003/micrographs_ctf.star --coord_list Aut
  
  
 
-    
+

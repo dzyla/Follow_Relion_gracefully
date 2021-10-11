@@ -14,6 +14,7 @@ from skimage import measure, exposure
 from skimage.transform import rescale
 
 
+
 PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 PLOT_HEIGHT = 500
 MAX_MICS = 30
@@ -194,20 +195,15 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
 
     fig.update_yaxes(automargin=True)
 
-    cls2d_name_json = 'cls2d_' + job_name.replace('/', '_')
-    plotly_file = HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER + "{}.json".format(
-        cls2d_name_json)
-    fig.write_json(plotly_file)
-
+    json_name = 'cls2d_'
     cls2d_height = 600 if n_classes_ < 30 else 800
-
-    name_json = 'cls2d1_' + job_name.replace('/', '_')
-    plotly_string = write_plot_get_shortcode(fig, name_json, job_name, HUGO_FOLDER, fig_height=cls2d_height)
-
+    plotly_string = write_plot_get_shortcode(fig, json_name, job_name, HUGO_FOLDER, fig_height=cls2d_height)
 
     cls2d_shortcodes.append(plotly_string)
 
-    '''Save 2D classes as images with slider'''
+
+
+    '''Save 2D classes as images with a slider'''
 
     job = job_name.split('/')[1].replace('/', PATH_CHARACTER)
 
@@ -244,6 +240,8 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
 
     cls2d_shortcodes.append(js_string)
 
+
+
     '''Class distribution plot'''
 
     fig_ = go.Figure()
@@ -261,13 +259,11 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
         title="Class distribution"
     )
 
-    cls2d_dist_name_json = 'cls2d_dist_' + job_name.replace('/', '_')
-    plotly_file = HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER + "{}.json".format(
-        cls2d_dist_name_json)
-    fig_.write_json(plotly_file)
-
-    plotly_string = write_plot_get_shortcode(fig_, cls2d_dist_name_json, job_name, HUGO_FOLDER)
+    json_name = 'cls2d_dist_'
+    plotly_string = write_plot_get_shortcode(fig_, json_name, job_name, HUGO_FOLDER)
     cls2d_shortcodes.append(plotly_string)
+
+
 
     '''Class resolution plot'''
 
@@ -286,12 +282,8 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
         title="Class Resolution [A]"
     )
 
-    cls2d_res_name_json = 'cls2d_res_' + job_name.replace('/', '_')
-    plotly_file = HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER + "{}.json".format(
-        cls2d_res_name_json)
-    fig_.write_json(plotly_file)
-
-    plotly_string = write_plot_get_shortcode(fig_, cls2d_res_name_json, job_name, HUGO_FOLDER)
+    json_name = 'cls2d_res_'
+    plotly_string = write_plot_get_shortcode(fig_, json_name, job_name, HUGO_FOLDER)
     cls2d_shortcodes.append(plotly_string)
 
 

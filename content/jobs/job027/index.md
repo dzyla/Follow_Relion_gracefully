@@ -1,20 +1,20 @@
 
-    ---
-    title: job027
-    jobname: Polish/job027/
-    status: Succeeded
-    date: 2021-06-01 10:05:13
-    time: 10:05:13
-    categories: [Polish]
-    ---
-    
-    #### Job alias: None
-    
-    
-    
-    #### Job command(s):
-    
-    
+---
+title: job027
+jobname: Polish/job027/
+status: Succeeded
+date: 2021-06-01 10:05:13
+time: 10:05:13
+categories: [Polish]
+---
+
+#### Job alias: None
+
+
+
+#### Job command(s):
+
+
  
  Executing new job on Tue Jun  1 17:01:55 2021
  
@@ -24,4 +24,4 @@ which relion_motion_refine --i Refine3D/job025/run_data.star --f PostProcess/job
  
  
 
-    
+

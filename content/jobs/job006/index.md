@@ -1,16 +1,16 @@
 
-    ---
-    title: job006
-    jobname: AutoPick/job006/
-    status: Succeeded
-    date: 2021-05-25 09:11:48
-    time: 09:11:48
-    categories: [AutoPick]
-    ---
-    
-    #### Job alias: None
-    
-    {{<rawhtml >}} 
+---
+title: job006
+jobname: AutoPick/job006/
+status: Succeeded
+date: 2021-05-25 09:11:48
+time: 09:11:48
+categories: [AutoPick]
+---
+
+#### Job alias: None
+
+{{<rawhtml >}} 
 
 
     <div class="center">
@@ -32,10 +32,10 @@
     </script>
     <br>
      {{< /rawhtml >}}
-    
-    #### Job command(s):
-    
-    
+
+#### Job command(s):
+
+
  
  Executing new job on Tue May 25 17:11:42 2021
  
@@ -45,4 +45,4 @@ which relion_autopick_mpi --i Select/job005/micrographs_split1.star --odir AutoP
  
  
 
-    
+

@@ -1,16 +1,16 @@
 
-    ---
-    title: job029
-    jobname: Refine3D/job029/
-    status: Succeeded
-    date: 2021-06-02 01:24:41
-    time: 01:24:41
-    categories: [Refine3D]
-    ---
-    
-    #### Job alias: None
-    
-    {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job029/refine3d_model_Refine3D_job029_.json" height="800px" >}}
+---
+title: job029
+jobname: Refine3D/job029/
+status: Succeeded
+date: 2021-06-02 01:24:41
+time: 01:24:41
+categories: [Refine3D]
+---
+
+#### Job alias: None
+
+{{< plotly json="/jobs/job029/refine3d_model_Refine3D_job029_.json" height="800px" >}}
 {{<rawhtml >}} 
 
         <div class="center">
@@ -33,14 +33,14 @@
         <br>
          {{< /rawhtml >}}
 #### Class Projections:
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job029/cls3d_projection_Refine3D_job029_.json" height="800px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job029/cls3d_res_Refine3D_job029_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job029/cls3d_psi_rot_Refine3D_job029_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job029/cls3d_psi_tilt_Refine3D_job029_.json" height="500px" >}}
-    
-    #### Job command(s):
-    
-    
+{{< plotly json="/jobs/job029/cls3d_projection_Refine3D_job029_.json" height="800px" >}}
+{{< plotly json="/jobs/job029/cls3d_res_Refine3D_job029_.json" height="500px" >}}
+{{< plotly json="/jobs/job029/cls3d_psi_rot_Refine3D_job029_.json" height="500px" >}}
+{{< plotly json="/jobs/job029/cls3d_psi_tilt_Refine3D_job029_.json" height="500px" >}}
+
+#### Job command(s):
+
+
  
  Executing new job on Wed Jun  2 09:04:21 2021
  
@@ -50,4 +50,4 @@ which relion_refine_mpi --o Refine3D/job029/run --auto_refine --split_random_hal
  
  
 
-    
+

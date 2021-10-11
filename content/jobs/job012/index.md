@@ -1,20 +1,20 @@
 
-    ---
-    title: job012
-    jobname: Extract/job012/
-    status: Succeeded
-    date: 2021-06-01 00:57:28
-    time: 00:57:28
-    categories: [Extract]
-    ---
-    
-    #### Job alias: None
-    
-    {{<rawhtml >}} 
+---
+title: job012
+jobname: Extract/job012/
+status: Succeeded
+date: 2021-06-01 00:57:28
+time: 00:57:28
+categories: [Extract]
+---
+
+#### Job alias: None
+
+{{<rawhtml >}} 
    
 <div class="center">
 <p>Preview of random extracted particles:<p>
-<input id="valR" type="range" min="0" max="99" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
+<input id="valR" type="range" min="0" max="98" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
 <span id="range">0</span>
 <img id="img" width="200">
 </div>
@@ -31,10 +31,10 @@
 </script>
 <br>
  {{< /rawhtml >}}
-    
-    #### Job command(s):
-    
-    
+
+#### Job command(s):
+
+
  
  Executing new job on Tue Jun  1 08:56:53 2021
  
@@ -44,4 +44,4 @@ which relion_preprocess --i CtfFind/job003/micrographs_ctf.star --coord_list Aut
  
  
 
-    
+

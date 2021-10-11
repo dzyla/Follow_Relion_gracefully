@@ -1,21 +1,21 @@
 
-    ---
-    title: job002
-    jobname: MotionCorr/job002/
-    status: Succeeded
-    date: 2021-05-25 06:06:48
-    time: 06:06:48
-    categories: [MotionCorr]
-    ---
-    
-    #### Job alias: None
-    
-    {{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job002/motioncorr_MotionCorr_job002_MotionCorr_job002_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job002/motioncorr1_MotionCorr_job002_MotionCorr_job002_.json" height="500px" >}}
-    
-    #### Job command(s):
-    
-    
+---
+title: job002
+jobname: MotionCorr/job002/
+status: Succeeded
+date: 2021-05-25 06:06:48
+time: 06:06:48
+categories: [MotionCorr]
+---
+
+#### Job alias: None
+
+{{< plotly json="/jobs/job002/motioncorr_MotionCorr_job002_MotionCorr_job002_.json" height="500px" >}}
+{{< plotly json="/jobs/job002/motioncorr1_MotionCorr_job002_MotionCorr_job002_.json" height="500px" >}}
+
+#### Job command(s):
+
+
  
  Executing new job on Tue May 25 13:56:50 2021
  
@@ -25,4 +25,4 @@ which relion_run_motioncorr --i Import/job001/movies.star --o MotionCorr/job002/
  
  
 
-    
+

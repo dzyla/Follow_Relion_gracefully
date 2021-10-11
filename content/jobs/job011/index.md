@@ -1,16 +1,16 @@
 
-    ---
-    title: job011
-    jobname: AutoPick/job011/
-    status: Succeeded
-    date: 2021-05-26 06:58:50
-    time: 06:58:50
-    categories: [AutoPick]
-    ---
-    
-    #### Job alias: None
-    
-    {{<rawhtml >}} 
+---
+title: job011
+jobname: AutoPick/job011/
+status: Succeeded
+date: 2021-05-26 06:58:50
+time: 06:58:50
+categories: [AutoPick]
+---
+
+#### Job alias: None
+
+{{<rawhtml >}} 
 
 
     <div class="center">
@@ -32,10 +32,10 @@
     </script>
     <br>
      {{< /rawhtml >}}
-    
-    #### Job command(s):
-    
-    
+
+#### Job command(s):
+
+
  
  Executing new job on Wed May 26 14:54:48 2021
  
@@ -45,4 +45,4 @@ which relion_autopick --i CtfFind/job003/micrographs_ctf.star --odir AutoPick/jo
  
  
 
-    
+
