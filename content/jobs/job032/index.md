@@ -10,7 +10,7 @@ categories: [Import]
 
 #### Job alias: None
 
-{{< plotly json="/jobs/job032/import_Import_job032_Import_job032_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job032/import_Import_job032_Import_job032_.json" height="500px" >}}
 
 #### Job command(s):
 

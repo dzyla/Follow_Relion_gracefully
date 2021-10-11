@@ -10,7 +10,7 @@ categories: [Class2D]
 
 #### Job alias: None
 
-{{< plotly json="/jobs/job008/cls2d_Class2D_job008_.json" height="800px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job008/cls2d_Class2D_job008_.json" height="800px" >}}
 {{<rawhtml >}} 
 
     <div class="center">
@@ -32,8 +32,8 @@ categories: [Class2D]
     </script>
     <br>
      {{< /rawhtml >}}
-{{< plotly json="/jobs/job008/cls2d_dist_Class2D_job008_.json" height="600px" >}}
-{{< plotly json="/jobs/job008/cls2d_res_Class2D_job008_.json" height="600px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job008/cls2d_dist_Class2D_job008_.json" height="600px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job008/cls2d_res_Class2D_job008_.json" height="600px" >}}
 
 #### Job command(s):
 

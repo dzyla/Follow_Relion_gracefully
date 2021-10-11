@@ -18,7 +18,7 @@ FOLDER = 'g:\\cryoEM\\relion40_tutorial_precalculated_results\\'
 HUGO_FOLDER = 'content/jobs/'
 
 # Force process of all folders, even if the same. Good for development.
-FORCE_PROCESS = False
+FORCE_PROCESS = True
 
 if __name__ == "__main__":
     # Check how many processors available
