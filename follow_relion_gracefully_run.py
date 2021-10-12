@@ -215,8 +215,8 @@ if __name__ == "__main__":
                     plotly_string = plot_ctf_refine(path_data, HUGO_FOLDER, job_name)
                     plotly_string = '\n'.join(plotly_string)
 
-            except:
-                plotly_string = 'Something went wrong'
+            except Exception as e:
+                plotly_string = 'Something went wrong\n {}'.format(e)
                 print('Something went wrong with {}'.format(job_name))
 
 
