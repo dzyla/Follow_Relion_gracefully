@@ -238,7 +238,7 @@ categories: [{}]
         process_name = pipeline_star['pipeline_processes']['_rlnPipeLineProcessName']
     else:
         print('default_pipeline.star does not exist or the folder is incorrect. Aborting..')
-
+        quit()
 
     try:
         # Relion 4.0
