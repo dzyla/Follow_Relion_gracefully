@@ -1412,7 +1412,7 @@ def plot_locres(path_data, HUGO_FOLDER, job_name):
     # fig.update_xaxes(title_text="Resolution, A")
     # fig.update_yaxes(title_text="Number of Voxels")
 
-    shortcode = write_plot_get_shortcode(fig, 'locres_', job_name, HUGO_FOLDER, fig_height=PLOT_HEIGHT)
+    shortcode = write_plot_get_shortcode(fig, 'locres_', job_name, HUGO_FOLDER, fig_height=600)
     shortcodes.append(shortcode)
 
     return shortcodes

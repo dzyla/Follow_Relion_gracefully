@@ -11,26 +11,25 @@ v3
 '''
 
 parser = argparse.ArgumentParser(
-        description='Follow Relion Gracefully: web based job GUI')
+    description='Follow Relion Gracefully: web based job GUI')
 parser.add_argument('--i', type=str, help='Relion folder path')
 parser.add_argument('--h', type=str, default='/',
-                        help='Hostname for HUGO website. Only for hosted website')
+                    help='Hostname for HUGO website. Only for hosted website')
 parser.add_argument('--o', type=str, default='content/jobs/',
-                        help='Output directory for HUGO website.')
+                    help='Output directory for HUGO website.')
 parser.add_argument('--force', action='store_true',
-                        help='Force redo all folders')
+                    help='Force redo all folders')
 parser.add_argument('--n', type=int, default=0,
-                        help='Number of CPUs for processing. Use less (1-2) if RAM is the issue')
+                    help='Number of CPUs for processing. Use less (1-2) if RAM is the issue')
 parser.add_argument('--debug', action='store_true',
-                        help='Debug')
+                    help='Debug')
 
 args = parser.parse_args()
-
 
 # Change the folder set if Hugo working on windows / linux.
 PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 
-HOSTNAME= args.h if not args.debug else 'https://dzyla.github.io/Follow_Relion_gracefully/'
+HOSTNAME = args.h if not args.debug else 'https://dzyla.github.io/Follow_Relion_gracefully/'
 FOLDER = args.i if not args.debug else '/mnt/staging/Dawid/test/relion40_tutorial_precalculated_results/'
 HUGO_FOLDER = args.o if not args.debug else 'content/jobs/'
 N_CPUs = args.n
@@ -71,6 +70,9 @@ if __name__ == "__main__":
     # Define the function for parallel execution
     def run_job(quequing_elem_):
         job_name, n = quequing_elem_
+
+        # Do not save time tag when processing failed
+        failed = False
 
         # Define the path for each job for Hugo server
         path = HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER
@@ -114,7 +116,7 @@ if __name__ == "__main__":
         if time_old != time_file:
             if time_old != None:
                 try:
-                    os.remove(path+time_old)
+                    os.remove(path + time_old)
                 except PermissionError as e:
                     print(e)
                     pass
@@ -151,17 +153,19 @@ if __name__ == "__main__":
                     if len(node_files) == 1:
                         if os.path.exists(FOLDER + node_files[0]):
                             star_path = FOLDER + node_files[0]
-                            rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1, adj_contrast=False)
+                            rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1,
+                                                                  adj_contrast=False)
 
                             plotly_string = plot_extract_js(rnd_particles, HUGO_FOLDER, job_name)
 
                     # Relion 4 has more nodes?
                     elif len(node_files) > 1:
 
-                        #File 1 is the particles star?
+                        # File 1 is the particles star?
                         if os.path.exists(FOLDER + node_files[1]):
                             star_path = FOLDER + node_files[1]
-                            rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1, adj_contrast=False)
+                            rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1,
+                                                                  adj_contrast=False)
 
                             plotly_string = plot_extract_js(rnd_particles, HUGO_FOLDER, job_name)
 
@@ -215,15 +219,23 @@ if __name__ == "__main__":
                     plotly_string = plot_ctf_refine(path_data, HUGO_FOLDER, job_name)
                     plotly_string = '\n'.join(plotly_string)
 
+                elif job_name.split('/')[0] == 'LocalRes':
+
+                    # 0 PDF, 1 filtered, 2 locres
+                    if os.path.exists(FOLDER + node_files[2]):
+                        data_path = FOLDER + node_files[2]
+                        plotly_string = plot_locres(data_path, HUGO_FOLDER, job_name)
+                        plotly_string = '\n'.join(plotly_string)
+
             except Exception as e:
                 plotly_string = 'Something went wrong\n {}'.format(e)
                 print('Something went wrong with {}'.format(job_name))
-
+                failed = True
 
             # write the MD file
             file = open(path + 'index.md', mode='w')
 
-
+            # This part is pretty ugly, but otherwise doesn't work.
             print('''
 ---
 title: {}
@@ -242,20 +254,24 @@ categories: [{}]
 
 {}
 '''.format(job_name.split('/')[1],
-                   job_name,
-                   process_status[n],
-                   modificationDate,
-                   modificationTime,
-                   job_name.split('/')[0],
-                   str(process_alias[n]),  # '\n\n'.join(node_files)
-                   plotly_string,
-                   note
-                   ), file=file)
+           job_name,
+           process_status[n],
+           modificationDate,
+           modificationTime,
+           job_name.split('/')[0],
+           str(process_alias[n]),  # '\n\n'.join(node_files)
+           plotly_string,
+           note
+           ), file=file)
 
         # Write the time stamp if the job completed properly
-        time_file = open(path + time_file, 'w')
+        if not failed:
+            open(path + time_file, 'w')
+
+        return 1
 
 
+    '''Rest of the program'''
 
     if os.path.exists(pipeline):
         pipeline_star = parse_star_whole(pipeline)
@@ -272,9 +288,9 @@ categories: [{}]
         # Relion 3.1
         process_status = pipeline_star['pipeline_processes']['_rlnPipeLineProcessStatus']
 
+    # Those are globally defined or something. Still works tho.
     process_nodes = pipeline_star['pipeline_nodes']['_rlnPipeLineNodeName']
     process_alias = pipeline_star['pipeline_processes']['_rlnPipeLineProcessAlias']
-
 
     # Define the data queue for parallel execution
     data_queue = np.stack([process_name, np.arange(0, len(process_name))], axis=1)
