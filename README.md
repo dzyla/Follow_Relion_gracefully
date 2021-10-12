@@ -54,6 +54,18 @@ Download GitHub repository:
 git clone https://github.com/dzyla/Follow_Relion_gracefully.git
 ```
 
+Download Hugo:
+```bash
+wget https://github.com/gohugoio/hugo/releases/download/v0.88.1/hugo_0.88.1_Linux-64bit.tar.gz
+# Check https://github.com/gohugoio/hugo/releases for new releases
+
+tar xvf hugo_0.88.1_Linux-64bit.tar.gz
+./hugo server
+```
+
+Connect to server: http://localhost:1313/Follow_Relion_gracefully/
+
+
 ## Usage
 
 ## Troubleshooting

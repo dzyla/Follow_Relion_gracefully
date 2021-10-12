@@ -14,7 +14,7 @@ categories: [Extract]
    
 <div class="center">
 <p>Preview of random extracted particles:<p>
-<input id="valR" type="range" min="0" max="99" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
+<input id="valR" type="range" min="0" max="97" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
 <span id="range">0</span>
 <img id="img" width="200">
 </div>

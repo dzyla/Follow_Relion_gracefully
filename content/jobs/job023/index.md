@@ -10,7 +10,10 @@ categories: [CtfRefine]
 
 #### Job alias: None
 
-Ghostscript not found
+![mag_disp_optics-group_1}](mag_disp_optics-group_1.jpg)
+
+
+
 
 #### Job command(s):
 

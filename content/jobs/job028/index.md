@@ -10,7 +10,14 @@ categories: [Polish]
 
 #### Job alias: None
 
-Ghostscript not found
+![scalefactors}](scalefactors.jpg)
+
+
+
+![bfactors}](bfactors.jpg)
+
+
+
 
 #### Job command(s):
 

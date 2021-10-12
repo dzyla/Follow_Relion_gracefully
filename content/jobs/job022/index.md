@@ -10,7 +10,14 @@ categories: [CtfRefine]
 
 #### Job alias: None
 
-Ghostscript not found
+![symmetric_aberrations_optics-group_1}](symmetric_aberrations_optics-group_1.jpg)
+
+
+
+![asymmetric_aberrations_optics-group_1}](asymmetric_aberrations_optics-group_1.jpg)
+
+
+
 
 #### Job command(s):
 
