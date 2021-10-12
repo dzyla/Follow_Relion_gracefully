@@ -30,7 +30,7 @@ if __name__ == "__main__":
     pipeline = FOLDER + 'default_pipeline.star'
 
     # Change hostname in the config.toml file
-    config_file = open('config.toml', 'rb')
+    config_file = open('config.toml', 'r')
     config_new = []
     save_new_config = False
     config_ = config_file.readlines()
