@@ -233,17 +233,12 @@ categories: [{}]
 
 
 
-    try:
+    if os.path.exists(pipeline):
         pipeline_star = parse_star_whole(pipeline)
         process_name = pipeline_star['pipeline_processes']['_rlnPipeLineProcessName']
+    else:
+        print('default_pipeline.star does not exist or the folder is incorrect. Aborting..')
 
-    except RuntimeError:
-        print('Folder does not have default_pipeline.star file Or the Relion folder path is incorrect. Exiting...')
-        quit()
-
-    except FileNotFoundError:
-        print('Folder does not have default_pipeline.star file Or the Relion folder path is incorrect. Exiting...')
-        quit()
 
     try:
         # Relion 4.0
