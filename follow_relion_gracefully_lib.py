@@ -1388,59 +1388,31 @@ def plot_import(rln_folder, star_data, HUGO_FOLDER, job_name):
 
     return shortcode
 
-    # fig = figure(tooltips=[("x", "$x"), ("y", "$y"), ("value", "@image")])
-    # fig.xgrid.grid_line_color = None
-    # fig.ygrid.grid_line_color = None
-    #
-    # fig.circle(coords_x.astype(float), coords_y.astype(float), line_color="green", size=30, alpha=1, fill_color=None, line_width = 2)
-    #
-    # fig.image(image=[mic_red], x=0, y=0, dw=micrograph.shape[0], dh=micrograph.shape[1], level="image")
-    #
-    # autopick_json_name = 'mic_{}_'.format(n)
-    # shortcode = save_bokeh(autopick_json_name, job_name, HUGO_FOLDER, fig)
-    #
-    # autopick_shorcode.append(shortcode)
+def plot_locres(path_data, HUGO_FOLDER, job_name):
+
+    import plotly.graph_objects as go
+    shortcodes = []
+
+    # Well, it procudes huge files. If want to keep the interactive plot need to drop the file size.
+    locres_data = mrcfile.open(path_data).data.flatten()
+
+    h = np.histogram(locres_data, bins=np.arange(locres_data.min(), locres_data.max(), step=0.1))
+
+    fig = go.Figure(
+        go.Bar(
+            customdata=[f"{n:.3f} - {h[1][i + 1]:.3f}, {h[0][i]}" for i, n in enumerate(h[1][:-1])],
+            x=h[1],
+            y=h[0],
+            hovertemplate="(%{customdata})<extra></extra>",
+        )
+    ).update_layout(bargap=0)
 
     # fig = go.Figure()
-    #
-    # #fig = px.imshow(mic_red, binary_string=True)
-    #
-    #
-    # fig.add_trace(
-    #     go.Scatter(
-    #         mode='markers',
-    #         x=coords_x.astype(float)*img_resize_fac,
-    #         y=coords_y.astype(float)*img_resize_fac,
-    #         marker=dict(
-    #             size=20,
-    #             line=dict(
-    #                 color='MediumPurple',
-    #                 width=2
-    #             )
-    #         ),
-    #         showlegend=False
-    #     )
-    # )
-    # fig.add_trace()
-    #
-    #
-    # # for n, x in enumerate(coords_x):
-    # #     # Add circles
-    # #     circle_size = 100 /2
-    # #     x = np.float(x)
-    # #     y = np.float(coords_y[n])
-    # #     x1 = (x - circle_size)*img_resize_fac
-    # #     x2 = (x + circle_size)*img_resize_fac
-    # #     y1 = (y - circle_size)*img_resize_fac
-    # #     y2 = (y + circle_size)*img_resize_fac
-    # #
-    # #     fig.add_shape(type="circle",
-    # #                   xref="x", yref="y",
-    # #                   x0=x1, y0=y1, x1=x2, y1=y2,
-    # #                   line_color="green",
-    # #                   )
-    # #
-    # # fig['layout'].update(
-    # #     scene=dict(xaxis=dict(visible=False), yaxis=dict(visible=False), zaxis=dict(visible=False)))
-    # fig.show()
-    # quit()
+    # fig.add_trace(go.Histogram(x=locres_data, nbinsx=100))
+    # fig.update_xaxes(title_text="Resolution, A")
+    # fig.update_yaxes(title_text="Number of Voxels")
+
+    shortcode = write_plot_get_shortcode(fig, 'locres_', job_name, HUGO_FOLDER, fig_height=PLOT_HEIGHT)
+    shortcodes.append(shortcode)
+
+    return shortcodes
