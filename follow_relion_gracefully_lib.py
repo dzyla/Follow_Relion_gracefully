@@ -1396,7 +1396,7 @@ def plot_locres(path_data, HUGO_FOLDER, job_name):
     # Well, it procudes huge files. If want to keep the interactive plot need to drop the file size.
     locres_data = mrcfile.open(path_data).data.flatten()
 
-    h = np.histogram(locres_data, bins=np.arange(locres_data.min(), locres_data.max(), step=0.1))
+    h = np.histogram(locres_data, bins=np.arange(np.min(np.nonzero(locres_data)), locres_data.max(), step=0.1))
 
     fig = go.Figure(
         go.Bar(
