@@ -237,7 +237,7 @@ categories: [{}]
         pipeline_star = parse_star_whole(pipeline)
         process_name = pipeline_star['pipeline_processes']['_rlnPipeLineProcessName']
     else:
-        print('default_pipeline.star does not exist or the folder is incorrect. Aborting..')
+        print('\ndefault_pipeline.star does not exist or the folder is incorrect. Aborting..\n')
         quit()
 
     try:
