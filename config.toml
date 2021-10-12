@@ -1,121 +1,50 @@
 baseurl = "https://dzyla.github.io/Follow_Relion_gracefully/"
-
 title = "Follow Relion Gracefully"
-
 languageCode = "en-us"
 
-
-
-# Theme to use
-
-#theme = "simple-hugo-theme"
-
-
-
 # Pagination
-
 paginate = 10
-
 paginatePath = "page"
 
-
-
-# Google analytics
-
-# googleAnalytics = ""
-
-
-
 # Copyright
-
-copyright = "2021 — Follow Relion Gracefully"
-
-
-
-
-
-
+copyright = "2021 Follow Relion Gracefully Dawid Zyla"
 
 # Highlighting
-
 pygmentsCodefences = true
-
 pygmentsCodeFencesGuessSyntax = true
-
 pygmentsoptions = "linenos=table"
-
 pygmentsStyle = "vs"
 
-
-
 # Taxonomies
-
 [taxonomies]
-
   tag = "tags"
-
   category = "categories"
 
-
-
 # Menu
-
 [menu]
-
   # Header
-
   [[menu.main]]
-
     url = "/jobs/"
-
     name = "Jobs"
-
     weight = 1
-
-
 
   # Footer
-
   [[menu.footer]]
-
     url = "https://github.com/dzyla/Follow_Relion_gracefully"
-
     name = "GitHub"
-
     weight = 1
 
   [[menu.footer]]
-
-    url = "/jobs/"
-
-    name = "Jobs"
-
-    weight = 2
-
-  [[menu.footer]]
-
     url = "mailto:dzyla@lji.org"
-
     name = "Contact"
-
-    weight = 3
-
-
-
+    weight = 2
 
 
 # Links format
-
 [permalinks]
-
   posts = "/posts/:year/:month/:title/"
 
-
-
 [params]
-
   # Date format (default: Jan 2, 2006)
-
   datefmt  = "Jan 2, 2006"
-
   plotly= true

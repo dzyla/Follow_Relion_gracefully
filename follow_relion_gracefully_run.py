@@ -30,7 +30,7 @@ if __name__ == "__main__":
     pipeline = FOLDER + 'default_pipeline.star'
 
     # Change hostname in the config.toml file
-    config_file = open('config.toml', 'r')
+    config_file = open('config.toml', 'rb')
     config_new = []
     save_new_config = False
     config_ = config_file.readlines()
@@ -237,7 +237,7 @@ categories: [{}]
         pipeline_star = parse_star_whole(pipeline)
         process_name = pipeline_star['pipeline_processes']['_rlnPipeLineProcessName']
 
-    except RuntimeError:
+    except RuntimeError or FileNotFoundError:
         print('Folder does not have default_pipeline.star file. Exiting...')
         quit()
 
