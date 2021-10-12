@@ -23,10 +23,6 @@ pygmentsStyle = "vs"
 # Menu
 [menu]
   # Header
-  [[menu.main]]
-    url = "/jobs/"
-    name = "Jobs"
-    weight = 1
 
   # Footer
   [[menu.footer]]
