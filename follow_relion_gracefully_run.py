@@ -2,6 +2,7 @@ from joblib import Parallel, delayed
 from follow_relion_gracefully_lib import *
 import multiprocessing
 import time
+import argparse
 
 '''
 Written by Dawid Zyla, LJI under Non-Profit Open Software License 3.0 (NPOSL-3.0).
@@ -9,21 +10,39 @@ Github: https://github.com/dzyla/Follow_Relion_gracefully/
 v3
 '''
 
+parser = argparse.ArgumentParser(
+        description='Follow Relion Gracefully: web based job GUI')
+parser.add_argument('--i', type=str, help='Relion folder path')
+parser.add_argument('--h', type=str, default='/',
+                        help='Hostname for HUGO website. Only for hosted website')
+parser.add_argument('--o', type=str, default='content/jobs/',
+                        help='Output directory for HUGO website.')
+parser.add_argument('--force', action='store_true',
+                        help='Force redo all folders')
+parser.add_argument('--n', type=int, default=0,
+                        help='Number of CPUs for processing. Use less (1-2) if RAM is the issue')
+parser.add_argument('--debug', action='store_true',
+                        help='Debug')
+
+args = parser.parse_args()
+
 
 # Change the folder set if Hugo working on windows / linux.
 PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 
-HOSTNAME='https://dzyla.github.io/Follow_Relion_gracefully/'
-FOLDER = 'g:\\cryoEM\\relion40_tutorial_precalculated_results\\'
-HUGO_FOLDER = 'content/jobs/'
+HOSTNAME= args.h if not args.debug else 'https://dzyla.github.io/Follow_Relion_gracefully/'
+FOLDER = args.i if not args.debug else '/mnt/staging/Dawid/test/relion40_tutorial_precalculated_results/'
+HUGO_FOLDER = args.o if not args.debug else 'content/jobs/'
+N_CPUs = args.n
 
 # Force process of all folders, even if the same. Good for development.
-FORCE_PROCESS = True
+FORCE_PROCESS = args.force
 
 if __name__ == "__main__":
     # Check how many processors available
-    N_CPUs = multiprocessing.cpu_count()
-    N_CPUs = 1 #Overide for debugging
+    if N_CPUs == 0:
+        N_CPUs = multiprocessing.cpu_count()
+
     print('Using {} CPUs for processing!'.format(N_CPUs))
 
     # Load pipeline star and check processes
@@ -237,7 +256,7 @@ categories: [{}]
         pipeline_star = parse_star_whole(pipeline)
         process_name = pipeline_star['pipeline_processes']['_rlnPipeLineProcessName']
     else:
-        print('\ndefault_pipeline.star does not exist or the folder is incorrect. Aborting..\n')
+        print('\ndefault_pipeline.star does not exist or the folder path is incorrect. Aborting..\n')
         quit()
 
     try:
