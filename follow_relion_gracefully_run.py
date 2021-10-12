@@ -138,81 +138,86 @@ if __name__ == "__main__":
             path_data = FOLDER + job_name
             note = get_note(path_data + 'note.txt')
 
-            if job_name.split('/')[0] == 'Class2D':
+            try:
+                if job_name.split('/')[0] == 'Class2D':
 
-                plotly_string = plot_2d_ply(path_data, HUGO_FOLDER, job_name)
-                plotly_string = '\n'.join(plotly_string)
+                    plotly_string = plot_2d_ply(path_data, HUGO_FOLDER, job_name)
+                    plotly_string = '\n'.join(plotly_string)
 
 
-            elif job_name.split('/')[0] == 'Extract':
+                elif job_name.split('/')[0] == 'Extract':
 
-                # For Relion 3 only single output from Extract
-                if len(node_files) == 1:
+                    # For Relion 3 only single output from Extract
+                    if len(node_files) == 1:
+                        if os.path.exists(FOLDER + node_files[0]):
+                            star_path = FOLDER + node_files[0]
+                            rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1, adj_contrast=False)
+
+                            plotly_string = plot_extract_js(rnd_particles, HUGO_FOLDER, job_name)
+
+                    # Relion 4 has more nodes?
+                    elif len(node_files) > 1:
+
+                        #File 1 is the particles star?
+                        if os.path.exists(FOLDER + node_files[1]):
+                            star_path = FOLDER + node_files[1]
+                            rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1, adj_contrast=False)
+
+                            plotly_string = plot_extract_js(rnd_particles, HUGO_FOLDER, job_name)
+
+
+                elif job_name.split('/')[0] == 'CtfFind':
+
                     if os.path.exists(FOLDER + node_files[0]):
-                        star_path = FOLDER + node_files[0]
-                        rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1, adj_contrast=False)
+                        star_path = parse_star(FOLDER + node_files[0])
 
-                        plotly_string = plot_extract_js(rnd_particles, HUGO_FOLDER, job_name)
-
-                # Relion 4 has more nodes?
-                elif len(node_files) > 1:
-
-                    #File 1 is the particles star?
-                    if os.path.exists(FOLDER + node_files[1]):
-                        star_path = FOLDER + node_files[1]
-                        rnd_particles = show_random_particles(star_path, FOLDER, random_size=100, r=1, adj_contrast=False)
-
-                        plotly_string = plot_extract_js(rnd_particles, HUGO_FOLDER, job_name)
+                        plotly_string = plot_ctf_stats(star_path, HUGO_FOLDER, job_name)
+                        plotly_string = '\n'.join(plotly_string)
 
 
-            elif job_name.split('/')[0] == 'CtfFind':
+                elif job_name.split('/')[0] == 'MotionCorr':
 
-                if os.path.exists(FOLDER + node_files[0]):
-                    star_path = parse_star(FOLDER + node_files[0])
+                    if os.path.exists(FOLDER + node_files[0]):
+                        star_path = parse_star(FOLDER + node_files[0])
+                        plotly_string = plot_motioncorr_stats(star_path, HUGO_FOLDER, job_name)
+                        plotly_string = '\n'.join(plotly_string)
 
-                    plotly_string = plot_ctf_stats(star_path, HUGO_FOLDER, job_name)
+
+                elif job_name.split('/')[0] == 'Import':
+                    if os.path.exists(FOLDER + node_files[0]):
+                        star_path = parse_star(FOLDER + node_files[0])
+                        plotly_string = plot_import(FOLDER, star_path, HUGO_FOLDER, job_name)
+                        plotly_string = '\n'.join(plotly_string)
+
+
+                elif job_name.split('/')[0] == 'Class3D' or job_name.split('/')[0] == 'InitialModel':
+
+                    plotly_string = plot_cls3d_stats(path_data, HUGO_FOLDER, job_name)
                     plotly_string = '\n'.join(plotly_string)
 
+                elif job_name.split('/')[0] == 'MaskCreate':
 
-            elif job_name.split('/')[0] == 'MotionCorr':
+                    if os.path.exists(FOLDER + node_files[0]):
+                        mask_path = FOLDER + node_files[0]
+                        plotly_string = plot_mask(mask_path, HUGO_FOLDER, job_name)
+                        plotly_string = '\n'.join(plotly_string)
 
-                if os.path.exists(FOLDER + node_files[0]):
-                    star_path = parse_star(FOLDER + node_files[0])
-                    plotly_string = plot_motioncorr_stats(star_path, HUGO_FOLDER, job_name)
+                elif job_name.split('/')[0] == 'Refine3D':
+
+                    plotly_string = plot_refine3d(path_data, HUGO_FOLDER, job_name)
                     plotly_string = '\n'.join(plotly_string)
 
+                elif job_name.split('/')[0] == 'AutoPick' or job_name.split('/')[0] == 'ManualPick':
+                    plotly_string = plot_picks_plotly(FOLDER, path_data, HUGO_FOLDER, job_name)
 
-            elif job_name.split('/')[0] == 'Import':
-                if os.path.exists(FOLDER + node_files[0]):
-                    star_path = parse_star(FOLDER + node_files[0])
-                    plotly_string = plot_import(FOLDER, star_path, HUGO_FOLDER, job_name)
+
+                elif job_name.split('/')[0] == 'CtfRefine' or job_name.split('/')[0] == 'Polish':
+                    plotly_string = plot_ctf_refine(path_data, HUGO_FOLDER, job_name)
                     plotly_string = '\n'.join(plotly_string)
 
-
-            elif job_name.split('/')[0] == 'Class3D' or job_name.split('/')[0] == 'InitialModel':
-
-                plotly_string = plot_cls3d_stats(path_data, HUGO_FOLDER, job_name)
-                plotly_string = '\n'.join(plotly_string)
-
-            elif job_name.split('/')[0] == 'MaskCreate':
-
-                if os.path.exists(FOLDER + node_files[0]):
-                    mask_path = FOLDER + node_files[0]
-                    plotly_string = plot_mask(mask_path, HUGO_FOLDER, job_name)
-                    plotly_string = '\n'.join(plotly_string)
-
-            elif job_name.split('/')[0] == 'Refine3D':
-
-                plotly_string = plot_refine3d(path_data, HUGO_FOLDER, job_name)
-                plotly_string = '\n'.join(plotly_string)
-
-            elif job_name.split('/')[0] == 'AutoPick' or job_name.split('/')[0] == 'ManualPick':
-                plotly_string = plot_picks_plotly(FOLDER, path_data, HUGO_FOLDER, job_name)
-
-
-            elif job_name.split('/')[0] == 'CtfRefine' or job_name.split('/')[0] == 'Polish':
-                plotly_string = plot_ctf_refine(path_data, HUGO_FOLDER, job_name)
-                plotly_string = '\n'.join(plotly_string)
+            except:
+                plotly_string = 'Something went wrong'
+                print('Something went wrong with {}'.format(job_name))
 
 
             # write the MD file
