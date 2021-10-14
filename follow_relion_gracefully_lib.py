@@ -1213,6 +1213,7 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
                                                                 np.max(data_test['auprc'].astype(float))]['epoch'])
         )
 
+        print(str(data_test[data_test['auprc'] == np.max(data_test['auprc'].astype(float))]['epoch']))
         shortcode = write_plot_get_shortcode(fig_, 'topaz_train_', job_name, HUGO_FOLDER, fig_height=PLOT_HEIGHT)
 
         return shortcode
