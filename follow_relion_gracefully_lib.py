@@ -12,7 +12,7 @@ import plotly.figure_factory as ff
 from gemmi import cif
 from skimage import measure, exposure
 from skimage.transform import rescale
-
+import plotly.graph_objects as go
 
 
 PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
@@ -1189,6 +1189,31 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
         for name in all_mics_paths:
             mics_paths.append(rln_folder + name)
 
+    elif glob.glob(path_data + 'model_training.txt') != []:
+
+        topaz_training_txt = glob.glob(path_data + 'model_training.txt')[0]
+
+        data = pd.read_csv(topaz_training_txt, delimiter='\t')
+        data_test = data[data['split'] == 'test']
+
+        fig_ = go.Figure()
+
+        for n, column in enumerate(data_test.columns):
+            x = data_test['epoch']
+            y = data_test[column]
+            fig_.add_scatter(x=x, y=y, name='{}'.format(column))
+
+        fig_.update_xaxes(title_text="Epoch")
+        fig_.update_yaxes(title_text="Result")
+
+        fig_.update_layout(
+            title="Topaz training stats. Best model: {}".format(format(data_test[data_test['auprc'] ==
+                                                                np.max(data_test['auprc'].astype(float))]['epoch']))
+        )
+
+        shortcode = write_plot_get_shortcode(fig_, 'topaz_train_', job_name, HUGO_FOLDER, fig_height=PLOT_HEIGHT)
+
+        return shortcode
 
     else:
         return 'Something went wrong'

@@ -10,7 +10,7 @@ categories: [AutoPick]
 
 #### Job alias: None
 
-Something went wrong
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job010/topaz_train_AutoPick_job010_.json" height="500px" >}}
 
 #### Job command(s):
 
