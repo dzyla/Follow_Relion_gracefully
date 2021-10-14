@@ -1195,12 +1195,13 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
 
         data = pd.read_csv(topaz_training_txt, delimiter='\t')
         data_test = data[data['split'] == 'test']
+        x = data_test['epoch']
+        data_test = data_test.drop(['iter', 'split', 'ge_penalty'], axis=1)
 
         fig_ = go.Figure()
 
         for n, column in enumerate(data_test.columns):
-            if column != 'iter' or column != 'epoch' or column != 'split' or column != 'ge_penalty':
-                x = data_test['epoch']
+            if column != 'epoch':
                 y = data_test[column]
                 fig_.add_scatter(x=x, y=y, name='{}'.format(column))
 
