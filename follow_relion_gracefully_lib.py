@@ -1575,6 +1575,8 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
     fig_.update_layout(
         xaxis=dict(autorange="reversed")
     )
+    fig_.update_layout(xaxis_range=[30, 0])
+    fig_.update_layout(yaxis_range=[-0.1, 1.1])
     fig_.update_xaxes(type="log")
 
 
@@ -1599,7 +1601,7 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
             pass
 
     fig_.update_xaxes(title_text="Resolution Squared")
-    fig_.update_yaxes(title_text="Log Amplitute")
+    fig_.update_yaxes(title_text="Ln(Amplitutes)")
 
     fig_.update_layout(
         title="Guinier plot"
@@ -1611,6 +1613,8 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
         xanchor="right",
         x=1
     ))
+    fig_.update_layout(xaxis_range=[30, 0])
+    fig_.update_layout(yaxis_range=[-8, -16])
 
     name_json = 'postprocess1_'
     postprocess_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
@@ -1633,7 +1637,7 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
     js_code = '''
 
             <div class="center">
-            <p>Volume projections preview:<p>
+            <p>Masked Volume slices preview:<p>
             <input id="valR" type="range" min="0" max="XXX" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
             <span id="range">0</span>
             <img id="img" width="350">
