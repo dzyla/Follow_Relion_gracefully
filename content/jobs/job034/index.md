@@ -2,7 +2,7 @@
 ---
 title: job034
 jobname: InitialModel/job034/
-status: Running
+status: Succeeded
 date: 2021-10-13 19:37:10
 time: 19:37:10
 categories: [InitialModel]
@@ -11,13 +11,13 @@ categories: [InitialModel]
 #### Job alias: None
 
 #### Class 0:
-{{< plotly json="/jobs/job034/cls3d_model0_InitialModel_job034_.json" height="600px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job034/cls3d_model0_InitialModel_job034_.json" height="600px" >}}
 #### Class Projections:
-{{< plotly json="/jobs/job034/cls3d_projection_InitialModel_job034_.json" height="800px" >}}
-{{< plotly json="/jobs/job034/cls3d_dist_InitialModel_job034_.json" height="500px" >}}
-{{< plotly json="/jobs/job034/cls3d_res_InitialModel_job034_.json" height="500px" >}}
-{{< plotly json="/jobs/job034/cls3d_psi_rot_InitialModel_job034_.json" height="500px" >}}
-{{< plotly json="/jobs/job034/cls3d_psi_tilt_InitialModel_job034_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job034/cls3d_projection_InitialModel_job034_.json" height="800px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job034/cls3d_dist_InitialModel_job034_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job034/cls3d_res_InitialModel_job034_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job034/cls3d_psi_rot_InitialModel_job034_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job034/cls3d_psi_tilt_InitialModel_job034_.json" height="500px" >}}
 
 #### Job command(s):
 

@@ -38,6 +38,8 @@ parser.add_argument('--debug', action='store_true',
                     help='Debug')
 parser.add_argument('--t', type=int, default=30,
                     help='Wait time between folder comparisons for the continues updates')
+parser.add_argument('--single', action='store_true',
+                    help='Single run, do not update')
 
 args = parser.parse_args()
 
@@ -328,8 +330,12 @@ if __name__ == "__main__":
 
                 #Disable forced processing
                 FORCE_PROCESS = False
-                time.sleep(args.t)
 
+                if args.single:
+                    print('Processing done, exiting...')
+                    quit()
+
+                time.sleep(args.t)
 
     except KeyboardInterrupt:
         print("Exiting...")

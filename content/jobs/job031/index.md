@@ -10,7 +10,7 @@ categories: [LocalRes]
 
 #### Job alias: None
 
-{{< plotly json="/jobs/job031/locres_LocalRes_job031_.json" height="600px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job031/locres_LocalRes_job031_.json" height="600px" >}}
 
 #### Job command(s):
 

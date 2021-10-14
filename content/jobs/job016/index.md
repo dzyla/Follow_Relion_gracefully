@@ -11,19 +11,19 @@ categories: [Class3D]
 #### Job alias: None
 
 #### Class 0:
-{{< plotly json="/jobs/job016/cls3d_model0_Class3D_job016_.json" height="600px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_model0_Class3D_job016_.json" height="600px" >}}
 #### Class 1:
-{{< plotly json="/jobs/job016/cls3d_model1_Class3D_job016_.json" height="600px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_model1_Class3D_job016_.json" height="600px" >}}
 #### Class 2:
-{{< plotly json="/jobs/job016/cls3d_model2_Class3D_job016_.json" height="600px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_model2_Class3D_job016_.json" height="600px" >}}
 #### Class 3:
-{{< plotly json="/jobs/job016/cls3d_model3_Class3D_job016_.json" height="600px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_model3_Class3D_job016_.json" height="600px" >}}
 #### Class Projections:
-{{< plotly json="/jobs/job016/cls3d_projection_Class3D_job016_.json" height="800px" >}}
-{{< plotly json="/jobs/job016/cls3d_dist_Class3D_job016_.json" height="500px" >}}
-{{< plotly json="/jobs/job016/cls3d_res_Class3D_job016_.json" height="500px" >}}
-{{< plotly json="/jobs/job016/cls3d_psi_rot_Class3D_job016_.json" height="500px" >}}
-{{< plotly json="/jobs/job016/cls3d_psi_tilt_Class3D_job016_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_projection_Class3D_job016_.json" height="800px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_dist_Class3D_job016_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_res_Class3D_job016_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_psi_rot_Class3D_job016_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job016/cls3d_psi_tilt_Class3D_job016_.json" height="500px" >}}
 
 #### Job command(s):
 
