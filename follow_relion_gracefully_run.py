@@ -1,6 +1,3 @@
-import hashlib
-
-import numpy as np
 from joblib import Parallel, delayed
 from follow_relion_gracefully_lib import *
 import multiprocessing
@@ -8,7 +5,7 @@ import time
 import argparse
 
 '''
-Written by Dawid Zyla, LJI under Non-Profit Open Software License 3.0 (NPOSL-3.0).
+Written by Dawid Zyla, LJI, under Non-Profit Open Software License 3.0 (NPOSL-3.0).
 Github: https://github.com/dzyla/Follow_Relion_gracefully/
 v3
 '''
@@ -25,27 +22,28 @@ def directory_files(path):
 
 parser = argparse.ArgumentParser(
     description='Follow Relion Gracefully: web based job GUI')
-parser.add_argument('--i', type=str, help='Relion folder path', required=True)
+parser.add_argument('--i', type=str, help='Relion folder path. Required!', required=True)
 parser.add_argument('--h', type=str, default='/',
-                    help='Hostname for HUGO website. Only for hosted website')
+                    help='Hostname for HUGO website. Only for hosted website (e.g. Github). For local hosting leave it default')
 parser.add_argument('--o', type=str, default='content/jobs/',
-                    help='Output directory for HUGO website.')
+                    help='Output directory for HUGO website. If using directly from Github, leave it default')
 parser.add_argument('--force', action='store_true',
-                    help='Force redo all folders')
+                    help='Force redo all folders for the first round. Use without arguments')
 parser.add_argument('--n', type=int, default=0,
                     help='Number of CPUs for processing. Use less (1-2) if RAM is the issue')
 parser.add_argument('--debug', action='store_true',
-                    help='Debug')
+                    help='Debug. Just for me ;)')
 parser.add_argument('--t', type=int, default=30,
-                    help='Wait time between folder comparisons for the continues updates')
+                    help='Wait time between folder comparisons for the continues updates. Default should work well. For slower computers, change it to 60s?')
 parser.add_argument('--single', action='store_true',
-                    help='Single run, do not update')
+                    help='Single run, do not do continues updates. Useful for the first time usage')
 
 args = parser.parse_args()
 
-# Change the folder set if Hugo working on windows / linux.
+# Change the folder set if Hugo working on windows / linux. Not sure if it even matters.
 PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 
+# Get the variables from argparse
 HOSTNAME = args.h if not args.debug else 'https://dzyla.github.io/Follow_Relion_gracefully/'
 FOLDER = args.i if not args.debug else '/mnt/staging/Dawid/test/relion40_tutorial_precalculated_results/'
 HUGO_FOLDER = args.o if not args.debug else 'content/jobs/'
@@ -266,7 +264,7 @@ if __name__ == "__main__":
 
     print('Using {} CPUs for processing!'.format(N_CPUs))
 
-    dir_check_old = 'dir_check'
+    dir_check_old = 'I am just an example string'
 
     # Change hostname in the config.toml file
     config_file = open('config.toml', 'r')
@@ -291,6 +289,7 @@ if __name__ == "__main__":
         while True:
             dir_check = directory_files(FOLDER)
 
+            # Only process files when the folder changes
             if dir_check != dir_check_old:
                 if args.debug:
                     print('Directory has changed!', len(dir_check))
@@ -298,8 +297,6 @@ if __name__ == "__main__":
                 # Load pipeline star and check processes
                 pipeline = FOLDER + 'default_pipeline.star'
 
-
-                '''Rest of the program'''
 
                 if os.path.exists(pipeline):
                     pipeline_star = parse_star_whole(pipeline)
@@ -328,13 +325,14 @@ if __name__ == "__main__":
 
                 dir_check_old = dir_check
 
-                #Disable forced processing
+                #Disable forced processing and process only updated folders
                 FORCE_PROCESS = False
 
                 if args.single:
                     print('Processing done, exiting...')
                     quit()
 
+                # Sleep between updates
                 time.sleep(args.t)
 
     except KeyboardInterrupt:
