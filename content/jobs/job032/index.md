@@ -18,7 +18,7 @@ categories: [PostProcess]
             <p>Volume projections preview:<p>
             <input id="valR" type="range" min="0" max="255" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
             <span id="range">0</span>
-            <img id="img" width="250">
+            <img id="img" width="350">
             </div>
 
             <script>

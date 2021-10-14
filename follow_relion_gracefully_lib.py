@@ -1572,22 +1572,28 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
         x=1
     ))
 
+    fig_.update_layout(
+        xaxis=dict(autorange="reversed")
+    )
+    fig_.update_xaxes(type="log")
+
+
     name_json = 'postprocess_'
     postprocess_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
                                              fig_height=500)
     shortcodes.append(postprocess_string)
 
 
-    guiner_x = guinier_data['_rlnResolutionSquared']
+    guiner_x = guinier_data['_rlnResolutionSquared'].astype(float)
 
-    fsc_to_plot = ['_rlnLogAmplitudesOriginal', '_rlnLogAmplitudesMTFCorrected',
+    guinier_to_plot = ['_rlnLogAmplitudesOriginal', '_rlnLogAmplitudesMTFCorrected',
                    '_rlnLogAmplitudesWeighted',
                    '_rlnLogAmplitudesSharpened', '_rlnLogAmplitudesIntercept']
 
     fig_ = go.Figure()
-    for meta in fsc_to_plot:
+    for meta in guinier_to_plot:
         try:
-            fig_.add_scatter(x=guiner_x, y=fsc_data[meta].astype(float), name=meta)
+            fig_.add_scatter(x=guiner_x, y=guinier_data[meta].astype(float), name=meta)
         except:
             #if MTF was not there?
             pass
@@ -1630,7 +1636,7 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
             <p>Volume projections preview:<p>
             <input id="valR" type="range" min="0" max="XXX" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
             <span id="range">0</span>
-            <img id="img" width="250">
+            <img id="img" width="350">
             </div>
 
             <script>
