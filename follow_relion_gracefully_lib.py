@@ -1,19 +1,18 @@
 import datetime
 import glob
-import glob
 import os
-
 import matplotlib.pyplot as plt
 import mrcfile
 import numpy as np
 import pandas as pd
 import plotly.express as px
+import plotly.graph_objects as go
 import plotly.figure_factory as ff
+
 from gemmi import cif
+
 from skimage import measure, exposure
 from skimage.transform import rescale
-import plotly.graph_objects as go
-
 
 PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 PLOT_HEIGHT = 500
@@ -259,6 +258,14 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
         title="Class distribution"
     )
 
+    fig_.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
     json_name = 'cls2d_dist_'
     plotly_string = write_plot_get_shortcode(fig_, json_name, job_name, HUGO_FOLDER)
     cls2d_shortcodes.append(plotly_string)
@@ -281,6 +288,14 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
     fig_.update_layout(
         title="Class Resolution [A]"
     )
+
+    fig_.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
 
     json_name = 'cls2d_res_'
     plotly_string = write_plot_get_shortcode(fig_, json_name, job_name, HUGO_FOLDER)
@@ -461,7 +476,15 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
     fig.update_xaxes(title_text="Index")
     fig.update_yaxes(title_text="_rlnDefocusV")
 
-    ctf_name_json = 'ctffind_' + job_name.replace('/', '_')
+    fig.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    ctf_name_json = 'ctffind_'
 
     shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
@@ -473,7 +496,15 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
     fig.update_xaxes(title_text="Index")
     fig.update_yaxes(title_text="_rlnCtfMaxResolution")
 
-    ctf_name_json = 'ctffind1_' + job_name.replace('/', '_')
+    fig.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    ctf_name_json = 'ctffind1_'
 
     shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
@@ -484,7 +515,15 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
     fig.update_xaxes(title_text="_rlnDefocusV")
     fig.update_yaxes(title_text="Number")
 
-    ctf_name_json = 'ctffind4_' + job_name.replace('/', '_')
+    fig.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    ctf_name_json = 'ctffind2_'
 
     shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
@@ -495,7 +534,15 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
     fig.update_xaxes(title_text="_rlnCtfAstigmatism")
     fig.update_yaxes(title_text="Number")
 
-    ctf_name_json = 'ctffind5_' + job_name.replace('/', '_')
+    fig.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    ctf_name_json = 'ctffind3_'
 
     shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
@@ -506,7 +553,15 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
     fig.update_xaxes(title_text="_rlnCtfMaxResolution")
     fig.update_yaxes(title_text="Number")
 
-    ctf_name_json = 'ctffind6_' + job_name.replace('/', '_')
+    fig.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    ctf_name_json = 'ctffind4_'
 
     shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
@@ -517,7 +572,15 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
     fig.update_xaxes(title_text="_rlnDefocusV")
     fig.update_yaxes(title_text="_rlnCtfMaxResolution")
 
-    ctf_name_json = 'ctffind2_' + job_name.replace('/', '_')
+    fig.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    ctf_name_json = 'ctffind5_'
 
     shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
@@ -528,7 +591,15 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
     fig.update_xaxes(title_text="_rlnDefocusV")
     fig.update_yaxes(title_text="_rlnCtfFigureOfMerit")
 
-    ctf_name_json = 'ctffind3_' + job_name.replace('/', '_')
+    fig.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    ctf_name_json = 'ctffind6_'
 
     shortcodes.append(write_plot_get_shortcode(fig, ctf_name_json, job_name, HUGO_FOLDER, fig_height=500))
 
@@ -537,6 +608,8 @@ def plot_ctf_stats(starctf, HUGO_FOLDER, job_name):
 
 def plot_motioncorr_stats(star, HUGO_FOLDER, job_name):
     import plotly.graph_objects as go
+
+    shortcodes = []
 
     star_data = star[1]
 
@@ -553,10 +626,17 @@ def plot_motioncorr_stats(star, HUGO_FOLDER, job_name):
     fig_.update_layout(
         title="MotionCorr statistics"
     )
+    fig_.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
 
-    motioncorr_name_json = 'motioncorr_' + job_name.replace('/', '_')
-    motioncorr_plotly_string0 = write_plot_get_shortcode(fig_, motioncorr_name_json, job_name, HUGO_FOLDER,
-                                                         fig_height=500)
+    motioncorr_name_json = 'motioncorr_'
+    shortcodes.append(write_plot_get_shortcode(fig_, motioncorr_name_json, job_name, HUGO_FOLDER,
+                                                         fig_height=500))
 
     '''Motion histograms'''
 
@@ -580,11 +660,19 @@ def plot_motioncorr_stats(star, HUGO_FOLDER, job_name):
     )
     fig_.update_traces(opacity=0.75)
 
-    motioncorr_name_json = 'motioncorr1_' + job_name.replace('/', '_')
-    motioncorr_plotly_string1 = write_plot_get_shortcode(fig_, motioncorr_name_json, job_name, HUGO_FOLDER,
-                                                         fig_height=500)
+    fig_.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
 
-    return [motioncorr_plotly_string0, motioncorr_plotly_string1]
+    motioncorr_name_json = 'motioncorr1_'
+    shortcodes.append(write_plot_get_shortcode(fig_, motioncorr_name_json, job_name, HUGO_FOLDER,
+                                                         fig_height=500))
+
+    return shortcodes
 
 
 def plot_3dclasses(files):
@@ -971,8 +1059,7 @@ def rotate_volume(volume, angle, rotaxes_):
 def plot_refine3d(path_data, HUGO_FOLDER, job_name):
     """Plot Class projections"""
 
-    import plotly.express as px
-    import plotly.graph_objects as go
+
 
     model_files = glob.glob(path_data + "*model.star")
     model_files.sort(key=os.path.getmtime)
@@ -1288,7 +1375,7 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
                         s=250, facecolors='none', edgecolor="green", linewidth=1)
 
             plt.savefig(HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER + str(
-                processed) + '.jpg')
+                processed) + '.jpg', bbox_inches='tight', pad_inches = 0)
             plt.cla()
 
             proceed = False
@@ -1409,8 +1496,15 @@ def plot_import(rln_folder, star_data, HUGO_FOLDER, job_name):
     fig_.update_layout(
         title="Imported micrographs timeline"
     )
+    fig_.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
 
-    name_json = 'import_' + job_name.replace('/', '_')
+    name_json = 'import_'
     import_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
                                                          fig_height=500)
     shortcode.append(import_string)
@@ -1427,19 +1521,16 @@ def plot_locres(path_data, HUGO_FOLDER, job_name):
 
     h = np.histogram(locres_data, bins=np.arange(0.1, locres_data.max(), step=0.1))
 
+    labels = ['{} - {}, {}'.format(round(n, 3), round(h[1][i+1], 3), h[0][i]) for i, n in enumerate(h[1][:-1])]
+
     fig = go.Figure(
         go.Bar(
-            customdata=[f"{n:.3f} - {h[1][i + 1]:.3f}, {h[0][i]}" for i, n in enumerate(h[1][:-1])],
+            customdata=labels,
             x=h[1],
             y=h[0],
             hovertemplate="(%{customdata})<extra></extra>",
         )
     ).update_layout(bargap=0)
-
-    # fig = go.Figure()
-    # fig.add_trace(go.Histogram(x=locres_data, nbinsx=100))
-    # fig.update_xaxes(title_text="Resolution, A")
-    # fig.update_yaxes(title_text="Number of Voxels")
 
     shortcode = write_plot_get_shortcode(fig, 'locres_', job_name, HUGO_FOLDER, fig_height=600)
     shortcodes.append(shortcode)

@@ -10,8 +10,8 @@ categories: [MotionCorr]
 
 #### Job alias: None
 
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job002/motioncorr_MotionCorr_job002_MotionCorr_job002_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job002/motioncorr1_MotionCorr_job002_MotionCorr_job002_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job002/motioncorr_MotionCorr_job002_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job002/motioncorr1_MotionCorr_job002_.json" height="500px" >}}
 
 #### Job command(s):
 
