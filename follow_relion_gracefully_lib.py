@@ -1195,6 +1195,7 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
 
         data = pd.read_csv(topaz_training_txt, delimiter='\t')
         data_test = data[data['split'] == 'test']
+
         x = data_test['epoch']
         data_test = data_test.drop(['iter', 'split', 'ge_penalty'], axis=1)
 
@@ -1209,11 +1210,10 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
         fig_.update_yaxes(title_text="Statistics")
 
         fig_.update_layout(
-            title="Topaz training stats. Best model: {}".format(data_test[data_test['auprc'] ==
-                                                                np.max(data_test['auprc'].astype(float))]['epoch'])
+            title="Topaz training stats. Best model: {}".format(data_test[data_test['auprc'].astype(float) ==
+                                                    np.max(data_test['auprc'].astype(float))]['epoch'].values)
         )
 
-        print(str(data_test[data_test['auprc'] == np.max(data_test['auprc'].astype(float))]['epoch']))
         shortcode = write_plot_get_shortcode(fig_, 'topaz_train_', job_name, HUGO_FOLDER, fig_height=PLOT_HEIGHT)
 
         return shortcode
