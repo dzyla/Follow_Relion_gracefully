@@ -7,7 +7,7 @@ paginate = 10
 paginatePath = "page"
 
 # Copyright
-copyright = "2021 Follow Relion Gracefully Dawid Zyla"
+copyright = "2021 / Follow Relion Gracefully / Dawid Zyla"
 
 # Highlighting
 pygmentsCodefences = true
