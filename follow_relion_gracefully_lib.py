@@ -1550,13 +1550,13 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
     fsc_data = postprocess_star_data['fsc']
     guinier_data = postprocess_star_data['guinier']
 
-    fsc_x = fsc_data['_rlnAngstromResolution']
+    fsc_x = fsc_data['_rlnAngstromResolution'].astype(float)
 
     fsc_to_plot = ['_rlnFourierShellCorrelationCorrected','_rlnFourierShellCorrelationUnmaskedMaps', '_rlnFourierShellCorrelationMaskedMaps', '_rlnCorrectedFourierShellCorrelationPhaseRandomizedMaskedMaps']
 
     fig_ = go.Figure()
     for meta in fsc_to_plot:
-        fig_.add_scatter(x=fsc_x, y=fsc_data[meta], name=meta)
+        fig_.add_scatter(x=fsc_x, y=fsc_data[meta].astype(float), name=meta)
 
     fig_.update_xaxes(title_text="Resolution, A")
     fig_.update_yaxes(title_text="FSC")
@@ -1587,7 +1587,7 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
     fig_ = go.Figure()
     for meta in fsc_to_plot:
         try:
-            fig_.add_scatter(x=fsc_x, y=fsc_data[meta], name=meta)
+            fig_.add_scatter(x=guiner_x, y=fsc_data[meta].astype(float), name=meta)
         except:
             #if MTF was not there?
             pass
