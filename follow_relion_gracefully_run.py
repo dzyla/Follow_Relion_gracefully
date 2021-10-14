@@ -25,7 +25,7 @@ def directory_files(path):
 
 parser = argparse.ArgumentParser(
     description='Follow Relion Gracefully: web based job GUI')
-parser.add_argument('--i', type=str, help='Relion folder path')
+parser.add_argument('--i', type=str, help='Relion folder path', required=True)
 parser.add_argument('--h', type=str, default='/',
                     help='Hostname for HUGO website. Only for hosted website')
 parser.add_argument('--o', type=str, default='content/jobs/',
