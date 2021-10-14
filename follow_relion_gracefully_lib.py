@@ -1321,13 +1321,6 @@ def plot_ctf_refine(path_data, HUGO_FOLDER, job_name):
 
     return shortcodes
 
-    # for n, particle in enumerate(particle_list):
-    #     # plt.figure(figsize=(5,5), dpi=100)
-    #     # plt.imshow(particle, cmap='gray')
-    #     plt.imsave(HUGO_FOLDER + job + PATH_CHARACTER + '{}.jpg'.format(n), particle, cmap='gray')
-    #     last_n = n
-
-
 
 def bayesian_polishing_plot():
     '''

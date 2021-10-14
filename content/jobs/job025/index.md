@@ -10,7 +10,7 @@ categories: [Refine3D]
 
 #### Job alias: None
 
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job025/refine3d_model_Refine3D_job025_.json" height="800px" >}}
+{{< plotly json="/jobs/job025/refine3d_model_Refine3D_job025_.json" height="800px" >}}
 {{<rawhtml >}} 
 
         <div class="center">
@@ -33,10 +33,10 @@ categories: [Refine3D]
         <br>
          {{< /rawhtml >}}
 #### Class Projections:
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job025/cls3d_projection_Refine3D_job025_.json" height="800px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job025/cls3d_res_Refine3D_job025_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job025/cls3d_psi_rot_Refine3D_job025_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job025/cls3d_psi_tilt_Refine3D_job025_.json" height="500px" >}}
+{{< plotly json="/jobs/job025/cls3d_projection_Refine3D_job025_.json" height="800px" >}}
+{{< plotly json="/jobs/job025/cls3d_res_Refine3D_job025_.json" height="500px" >}}
+{{< plotly json="/jobs/job025/cls3d_psi_rot_Refine3D_job025_.json" height="500px" >}}
+{{< plotly json="/jobs/job025/cls3d_psi_tilt_Refine3D_job025_.json" height="500px" >}}
 
 #### Job command(s):
 

@@ -62,7 +62,7 @@ wget https://github.com/gohugoio/hugo/releases/download/v0.88.1/hugo_0.88.1_Linu
 
 tar xvf hugo_0.88.1_Linux-64bit.tar.gz
 # Start HUGO server
-./hugo server
+hugo server --disableLiveReload
 ```
 
 Connect to server display in the terminal, e.g.: http://localhost:1313/Follow_Relion_gracefully/

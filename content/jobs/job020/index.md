@@ -10,7 +10,7 @@ categories: [MaskCreate]
 
 #### Job alias: None
 
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job020/mask_projection_MaskCreate_job020_.json" height="800px" >}}
+{{< plotly json="/jobs/job020/mask_projection_MaskCreate_job020_.json" height="800px" >}}
 
 #### Job command(s):
 

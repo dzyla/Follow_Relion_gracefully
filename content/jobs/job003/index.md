@@ -10,13 +10,13 @@ categories: [CtfFind]
 
 #### Job alias: None
 
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job003/ctffind_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job003/ctffind1_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job003/ctffind4_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job003/ctffind5_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job003/ctffind6_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job003/ctffind2_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
-{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job003/ctffind3_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
+{{< plotly json="/jobs/job003/ctffind_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
+{{< plotly json="/jobs/job003/ctffind1_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
+{{< plotly json="/jobs/job003/ctffind4_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
+{{< plotly json="/jobs/job003/ctffind5_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
+{{< plotly json="/jobs/job003/ctffind6_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
+{{< plotly json="/jobs/job003/ctffind2_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
+{{< plotly json="/jobs/job003/ctffind3_CtfFind_job003_CtfFind_job003_.json" height="500px" >}}
 
 #### Job command(s):
 
