@@ -10,7 +10,29 @@ categories: [PostProcess]
 
 #### Job alias: None
 
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job032/postprocess_PostProcess_job032_.json" height="500px" >}}
+{{< plotly json="https://dzyla.github.io/Follow_Relion_gracefully/jobs/job032/postprocess1_PostProcess_job032_.json" height="500px" >}}
+{{<rawhtml >}} 
 
+            <div class="center">
+            <p>Volume projections preview:<p>
+            <input id="valR" type="range" min="0" max="255" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
+            <span id="range">0</span>
+            <img id="img" width="250">
+            </div>
+
+            <script>
+
+                var val = document.getElementById("valR").value;
+                    document.getElementById("range").innerHTML=val;
+                    document.getElementById("img").src = val + ".jpg";
+                    function showVal(newVal){
+                      document.getElementById("range").innerHTML=newVal;
+                      document.getElementById("img").src = newVal+ ".jpg";
+                    }
+            </script>
+            <br>
+             {{< /rawhtml >}}
 
 #### Job command(s):
 

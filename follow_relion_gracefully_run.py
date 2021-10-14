@@ -212,6 +212,14 @@ def run_job(quequing_elem_):
                     plotly_string = plot_locres(data_path, HUGO_FOLDER, job_name)
                     plotly_string = '\n'.join(plotly_string)
 
+            elif job_name.split('/')[0] == 'PostProcess':
+
+                # 3 is the star file
+                if os.path.exists(FOLDER + node_files[3]):
+                    data_path = FOLDER + node_files[3]
+                    plotly_string = plot_postprocess(FOLDER, node_files, HUGO_FOLDER, job_name)
+                    plotly_string = '\n'.join(plotly_string)
+
         except Exception as e:
             plotly_string = 'Something went wrong\n {}'.format(e)
             print('Something went wrong with {}'.format(job_name))

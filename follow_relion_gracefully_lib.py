@@ -1536,3 +1536,118 @@ def plot_locres(path_data, HUGO_FOLDER, job_name):
     shortcodes.append(shortcode)
 
     return shortcodes
+
+
+def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
+
+    shortcodes = []
+
+    '''Plot FSC curves from postprocess.star'''
+
+    postprocess_star_path = rln_folder+nodes[3]
+    postprocess_star_data = parse_star_whole(postprocess_star_path)
+
+    fsc_data = postprocess_star_data['fsc']
+    guinier_data = postprocess_star_data['guinier']
+
+    fsc_x = fsc_data['_rlnAngstromResolution']
+
+    fsc_to_plot = ['_rlnFourierShellCorrelationCorrected','_rlnFourierShellCorrelationUnmaskedMaps', '_rlnFourierShellCorrelationMaskedMaps', '_rlnCorrectedFourierShellCorrelationPhaseRandomizedMaskedMaps']
+
+    fig_ = go.Figure()
+    for meta in fsc_to_plot:
+        fig_.add_scatter(x=fsc_x, y=fsc_data[meta], name=meta)
+
+    fig_.update_xaxes(title_text="Resolution, A")
+    fig_.update_yaxes(title_text="FSC")
+
+    fig_.update_layout(
+        title="FSC"
+    )
+    fig_.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    name_json = 'postprocess_'
+    postprocess_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
+                                             fig_height=500)
+    shortcodes.append(postprocess_string)
+
+
+    guiner_x = guinier_data['_rlnResolutionSquared']
+
+    fsc_to_plot = ['_rlnLogAmplitudesOriginal', '_rlnLogAmplitudesMTFCorrected',
+                   '_rlnLogAmplitudesWeighted',
+                   '_rlnLogAmplitudesSharpened', '_rlnLogAmplitudesIntercept']
+
+    fig_ = go.Figure()
+    for meta in fsc_to_plot:
+        try:
+            fig_.add_scatter(x=fsc_x, y=fsc_data[meta], name=meta)
+        except:
+            #if MTF was not there?
+            pass
+
+    fig_.update_xaxes(title_text="Resolution Squared")
+    fig_.update_yaxes(title_text="Log Amplitute")
+
+    fig_.update_layout(
+        title="Guinier plot"
+    )
+    fig_.update_layout(legend=dict(
+        orientation="h",
+        yanchor="bottom",
+        y=1.02,
+        xanchor="right",
+        x=1
+    ))
+
+    name_json = 'postprocess1_'
+    postprocess_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
+                                                  fig_height=500)
+    shortcodes.append(postprocess_string)
+
+
+    """Plot masked postprocess in 2D slices"""
+
+    job = job_name.split('/')[1].replace('/', PATH_CHARACTER)
+
+    volume_path = rln_folder+nodes[1]
+    volume_data = mrcfile.open(volume_path).data
+
+    for n, slice in enumerate(volume_data):
+        #slice_img =
+        plt.imsave(HUGO_FOLDER + job + PATH_CHARACTER + '{}.jpg'.format(n), slice, cmap='gray')
+        last_n = n
+
+    js_code = '''
+
+            <div class="center">
+            <p>Volume projections preview:<p>
+            <input id="valR" type="range" min="0" max="XXX" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
+            <span id="range">0</span>
+            <img id="img" width="250">
+            </div>
+
+            <script>
+
+                var val = document.getElementById("valR").value;
+                    document.getElementById("range").innerHTML=val;
+                    document.getElementById("img").src = val + ".jpg";
+                    function showVal(newVal){
+                      document.getElementById("range").innerHTML=newVal;
+                      document.getElementById("img").src = newVal+ ".jpg";
+                    }
+            </script>
+            <br>
+            '''.replace('XXX', str(last_n))
+
+    js_string = "((<rawhtml >)) {} ((< /rawhtml >))".format(js_code)
+    js_string = js_string.replace('((', '{{').replace('))', '}}')
+
+    shortcodes.append(js_string)
+    return shortcodes
