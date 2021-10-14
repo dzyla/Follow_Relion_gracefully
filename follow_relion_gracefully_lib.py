@@ -1199,16 +1199,17 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
         fig_ = go.Figure()
 
         for n, column in enumerate(data_test.columns):
-            x = data_test['epoch']
-            y = data_test[column]
-            fig_.add_scatter(x=x, y=y, name='{}'.format(column))
+            if column != 'iter' or column != 'epoch' or column != 'split' or column != 'ge_penalty':
+                x = data_test['epoch']
+                y = data_test[column]
+                fig_.add_scatter(x=x, y=y, name='{}'.format(column))
 
         fig_.update_xaxes(title_text="Epoch")
-        fig_.update_yaxes(title_text="Result")
+        fig_.update_yaxes(title_text="Statistics")
 
         fig_.update_layout(
-            title="Topaz training stats. Best model: {}".format(format(data_test[data_test['auprc'] ==
-                                                                np.max(data_test['auprc'].astype(float))]['epoch']))
+            title="Topaz training stats. Best model: {}".format(data_test[data_test['auprc'] ==
+                                                                np.max(data_test['auprc'].astype(float))]['epoch'])
         )
 
         shortcode = write_plot_get_shortcode(fig_, 'topaz_train_', job_name, HUGO_FOLDER, fig_height=PLOT_HEIGHT)
