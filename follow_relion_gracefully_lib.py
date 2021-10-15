@@ -1556,7 +1556,8 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
 
     fig_ = go.Figure()
     for meta in fsc_to_plot:
-        fig_.add_scatter(x=fsc_x, y=fsc_data[meta].astype(float), name=meta)
+        # Limit the range of the data. Nobody needs 999A res. Start from ~50A?
+        fig_.add_scatter(x=fsc_x[8:], y=fsc_data[meta][8:].astype(float), name=meta)
 
     fig_.update_xaxes(title_text="Resolution, A")
     fig_.update_yaxes(title_text="FSC")
@@ -1571,13 +1572,13 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
         xanchor="right",
         x=1
     ))
+    fig_.update_xaxes(type="log")
 
     fig_.update_layout(
-        xaxis=dict(autorange="reversed")
-    )
+        xaxis=dict(autorange="reversed"))
     fig_.update_layout(xaxis_range=[30, 0])
+    fig_.add_hline(y=0.143)
     fig_.update_layout(yaxis_range=[-0.1, 1.1])
-    fig_.update_xaxes(type="log")
 
 
     name_json = 'postprocess_'
@@ -1592,20 +1593,27 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
                    '_rlnLogAmplitudesWeighted',
                    '_rlnLogAmplitudesSharpened', '_rlnLogAmplitudesIntercept']
 
+
+    '''Guinier plot'''
     fig_ = go.Figure()
     for meta in guinier_to_plot:
         try:
-            fig_.add_scatter(x=guiner_x, y=guinier_data[meta].astype(float), name=meta)
+            y_data = guinier_data[meta].astype(float)
+
+            #remove some points
+            y_data[y_data == -99] = 'Nan'
+
+            fig_.add_scatter(x=guiner_x, y=y_data, name=meta)
         except:
             #if MTF was not there?
             pass
 
-    fig_.update_xaxes(title_text="Resolution Squared")
+    fig_.update_xaxes(title_text="Resolution Squared, [1/A^2]")
     fig_.update_yaxes(title_text="Ln(Amplitutes)")
 
     fig_.update_layout(
-        title="Guinier plot"
-    )
+        title="Guinier plot")
+
     fig_.update_layout(legend=dict(
         orientation="h",
         yanchor="bottom",
@@ -1613,8 +1621,10 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
         xanchor="right",
         x=1
     ))
-    fig_.update_layout(xaxis_range=[30, 0])
-    fig_.update_layout(yaxis_range=[-8, -16])
+    #fig_.update_yaxes(range=[-16, -8])
+    # fig_.update_layout(
+    #     yaxis=dict(autorange="reversed"))
+
 
     name_json = 'postprocess1_'
     postprocess_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
