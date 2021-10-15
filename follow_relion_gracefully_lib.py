@@ -18,6 +18,7 @@ PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 PLOT_HEIGHT = 500
 MAX_MICS = 30
 
+
 def write_config(hostname):
     config = open('config.toml', 'w')
     print('''
@@ -68,6 +69,7 @@ pygmentsStyle = "vs"
   datefmt  = "Jan 2, 2006"
   plotly= true'''.format(hostname), file=config)
 
+
 def parse_star_model(file_path, loop_name):
     doc = cif.read_file(file_path)
 
@@ -95,7 +97,6 @@ def get_class_list(path_):
 
 
 def plot_2dclasses_(path_, classnumber):
-
     # open mrcs stack
     classes = mrcfile.open(path_[0]).data
 
@@ -250,8 +251,6 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
 
     cls2d_shortcodes.append(plotly_string)
 
-
-
     '''Save 2D classes as images with a slider'''
 
     job = job_name.split('/')[1].replace('/', PATH_CHARACTER)
@@ -289,8 +288,6 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
 
     cls2d_shortcodes.append(js_string)
 
-
-
     '''Class distribution plot'''
 
     fig_ = go.Figure()
@@ -320,8 +317,6 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
     plotly_string = write_plot_get_shortcode(fig_, json_name, job_name, HUGO_FOLDER)
     cls2d_shortcodes.append(plotly_string)
 
-
-
     '''Class resolution plot'''
 
     fig_ = go.Figure()
@@ -350,7 +345,6 @@ def plot_2d_ply(path_data, HUGO_FOLDER, job_name):
     json_name = 'cls2d_res_'
     plotly_string = write_plot_get_shortcode(fig_, json_name, job_name, HUGO_FOLDER)
     cls2d_shortcodes.append(plotly_string)
-
 
     return cls2d_shortcodes
 
@@ -686,7 +680,7 @@ def plot_motioncorr_stats(star, HUGO_FOLDER, job_name):
 
     motioncorr_name_json = 'motioncorr_'
     shortcodes.append(write_plot_get_shortcode(fig_, motioncorr_name_json, job_name, HUGO_FOLDER,
-                                                         fig_height=500))
+                                               fig_height=500))
 
     '''Motion histograms'''
 
@@ -720,7 +714,7 @@ def plot_motioncorr_stats(star, HUGO_FOLDER, job_name):
 
     motioncorr_name_json = 'motioncorr1_'
     shortcodes.append(write_plot_get_shortcode(fig_, motioncorr_name_json, job_name, HUGO_FOLDER,
-                                                         fig_height=500))
+                                               fig_height=500))
 
     return shortcodes
 
@@ -859,9 +853,9 @@ def write_plot_get_shortcode(fig, json_name, job_name, HUGO_FOLDER, fig_height=6
         name_json)
     fig.write_json(plotly_file)
 
-    plotly_string = '((< plotly json="{}jobs/{}/{}" height="{}px" >))'.format(HOSTNAME,job_name.split('/')[1],
-                                                                             "{}.json".format(
-                                                                                 name_json), fig_height)
+    plotly_string = '((< plotly json="{}jobs/{}/{}" height="{}px" >))'.format(HOSTNAME, job_name.split('/')[1],
+                                                                              "{}.json".format(
+                                                                                  name_json), fig_height)
     shortcode = plotly_string.replace('((', '{{').replace('))', '}}')
 
     return shortcode
@@ -1109,8 +1103,6 @@ def rotate_volume(volume, angle, rotaxes_):
 def plot_refine3d(path_data, HUGO_FOLDER, job_name):
     """Plot Class projections"""
 
-
-
     model_files = glob.glob(path_data + "*model.star")
     model_files.sort(key=os.path.getmtime)
 
@@ -1348,7 +1340,8 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
 
         fig_.update_layout(
             title="Topaz training stats. Best model: {}".format(data_test[data_test['auprc'].astype(float) ==
-                                                    np.max(data_test['auprc'].astype(float))]['epoch'].values)
+                                                                          np.max(data_test['auprc'].astype(float))][
+                                                                    'epoch'].values)
         )
 
         fig_.update_layout(legend=dict(
@@ -1425,14 +1418,12 @@ def plot_picks_plotly(rln_folder, path_data, HUGO_FOLDER, job_name):
                         s=250, facecolors='none', edgecolor="green", linewidth=1)
 
             plt.savefig(HUGO_FOLDER + job_name.split('/')[1].replace('/', PATH_CHARACTER) + PATH_CHARACTER + str(
-                processed) + '.jpg', bbox_inches='tight', pad_inches = 0)
+                processed) + '.jpg', bbox_inches='tight', pad_inches=0)
             plt.cla()
 
             proceed = False
 
     js_code = '''
-
-
     <div class="center">
     <p>Preview of random extracted particles:<p>
     <input id="valR" type="range" min="0" max="XXX" value="0" step="1" oninput="showVal(this.value)" onchange="showVal(this.value)" />
@@ -1495,29 +1486,12 @@ def plot_ctf_refine(path_data, HUGO_FOLDER, job_name):
     return shortcodes
 
 
-def bayesian_polishing_plot():
-    '''
-        find eps files
-        for file in eps files:
-        open eps, save as jpg
-
-        for eps file in eps files:
-        generate JS to show them
-
-        return js
-
-        :return:
-        '''
-
-    pass
-
 def plot_import(rln_folder, star_data, HUGO_FOLDER, job_name):
     import plotly.graph_objects as go
 
     shortcode = []
 
     star_data = star_data[1]
-
 
     try:
         file_names = star_data['_rlnMicrographMovieName']
@@ -1533,8 +1507,7 @@ def plot_import(rln_folder, star_data, HUGO_FOLDER, job_name):
 
     file_mod_times = []
     for file in file_names:
-        file_mod_times.append(datetime.datetime.fromtimestamp(os.path.getmtime(rln_folder+file)))
-
+        file_mod_times.append(datetime.datetime.fromtimestamp(os.path.getmtime(rln_folder + file)))
 
     fig_ = go.Figure()
 
@@ -1556,13 +1529,13 @@ def plot_import(rln_folder, star_data, HUGO_FOLDER, job_name):
 
     name_json = 'import_'
     import_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
-                                                         fig_height=500)
+                                             fig_height=500)
     shortcode.append(import_string)
 
     return shortcode
 
-def plot_locres(path_data, HUGO_FOLDER, job_name):
 
+def plot_locres(path_data, HUGO_FOLDER, job_name):
     import plotly.graph_objects as go
     shortcodes = []
 
@@ -1571,7 +1544,7 @@ def plot_locres(path_data, HUGO_FOLDER, job_name):
 
     h = np.histogram(locres_data, bins=np.arange(0.1, locres_data.max(), step=0.1))
 
-    labels = ['{} - {}, {}'.format(round(n, 3), round(h[1][i+1], 3), h[0][i]) for i, n in enumerate(h[1][:-1])]
+    labels = ['{} - {}, {}'.format(round(n, 3), round(h[1][i + 1], 3), h[0][i]) for i, n in enumerate(h[1][:-1])]
 
     fig = go.Figure(
         go.Bar(
@@ -1589,12 +1562,11 @@ def plot_locres(path_data, HUGO_FOLDER, job_name):
 
 
 def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
-
     shortcodes = []
 
     '''Plot FSC curves from postprocess.star'''
 
-    postprocess_star_path = rln_folder+nodes[3]
+    postprocess_star_path = rln_folder + nodes[3]
     postprocess_star_data = parse_star_whole(postprocess_star_path)
 
     fsc_data = postprocess_star_data['fsc']
@@ -1602,7 +1574,9 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
 
     fsc_x = fsc_data['_rlnAngstromResolution'].astype(float)
 
-    fsc_to_plot = ['_rlnFourierShellCorrelationCorrected','_rlnFourierShellCorrelationUnmaskedMaps', '_rlnFourierShellCorrelationMaskedMaps', '_rlnCorrectedFourierShellCorrelationPhaseRandomizedMaskedMaps']
+    fsc_to_plot = ['_rlnFourierShellCorrelationCorrected', '_rlnFourierShellCorrelationUnmaskedMaps',
+                   '_rlnFourierShellCorrelationMaskedMaps',
+                   '_rlnCorrectedFourierShellCorrelationPhaseRandomizedMaskedMaps']
 
     fig_ = go.Figure()
     for meta in fsc_to_plot:
@@ -1630,19 +1604,16 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
     fig_.add_hline(y=0.143)
     fig_.update_layout(yaxis_range=[-0.1, 1.1])
 
-
     name_json = 'postprocess_'
     postprocess_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
-                                             fig_height=500)
+                                                  fig_height=500)
     shortcodes.append(postprocess_string)
-
 
     guiner_x = guinier_data['_rlnResolutionSquared'].astype(float)
 
     guinier_to_plot = ['_rlnLogAmplitudesOriginal', '_rlnLogAmplitudesMTFCorrected',
-                   '_rlnLogAmplitudesWeighted',
-                   '_rlnLogAmplitudesSharpened', '_rlnLogAmplitudesIntercept']
-
+                       '_rlnLogAmplitudesWeighted',
+                       '_rlnLogAmplitudesSharpened', '_rlnLogAmplitudesIntercept']
 
     '''Guinier plot'''
     fig_ = go.Figure()
@@ -1650,12 +1621,12 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
         try:
             y_data = guinier_data[meta].astype(float)
 
-            #remove some points
+            # remove some points
             y_data[y_data == -99] = 'Nan'
 
             fig_.add_scatter(x=guiner_x, y=y_data, name=meta)
         except:
-            #if MTF was not there?
+            # if MTF was not there?
             pass
 
     fig_.update_xaxes(title_text="Resolution Squared, [1/A^2]")
@@ -1671,26 +1642,24 @@ def plot_postprocess(rln_folder, nodes, HUGO_FOLDER, job_name):
         xanchor="right",
         x=1
     ))
-    #fig_.update_yaxes(range=[-16, -8])
+    # fig_.update_yaxes(range=[-16, -8])
     # fig_.update_layout(
     #     yaxis=dict(autorange="reversed"))
-
 
     name_json = 'postprocess1_'
     postprocess_string = write_plot_get_shortcode(fig_, name_json, job_name, HUGO_FOLDER,
                                                   fig_height=500)
     shortcodes.append(postprocess_string)
 
-
     """Plot masked postprocess in 2D slices"""
 
     job = job_name.split('/')[1].replace('/', PATH_CHARACTER)
 
-    volume_path = rln_folder+nodes[1]
+    volume_path = rln_folder + nodes[1]
     volume_data = mrcfile.open(volume_path).data
 
     for n, slice in enumerate(volume_data):
-        #slice_img =
+        # slice_img =
         plt.imsave(HUGO_FOLDER + job + PATH_CHARACTER + '{}.jpg'.format(n), slice, cmap='gray')
         last_n = n
 
