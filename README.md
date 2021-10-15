@@ -5,13 +5,15 @@
 
 **Data coming from [Relion4 tutorial](https://relion.readthedocs.io/en/release-4.0/)**
 
-## Description
-This is a 3rd iteration of my Relion job preview script. Previous versions focused on a single job and its statistics. Now 
-all jobs can be previewed using friendly web browser interface.
+**Non-Profit Open Software License 3.0 (NPOSL-3.0)**
 
-The main changes include the addition of static website generator
+## Description
+This is the 3rd iteration of my Relion job preview script. Previous versions focused on a single job and its statistics. Now 
+all jobs can be previewed using a friendly web browser interface.
+
+The main changes include the addition of a static website generator
 [HUGO](https://gohugo.io/). Python script reads the Relion's default_pipeline.star
-file, fetches the data and plots job-related stats. Almost all jobs are
+file, fetches the data, and plots job-related stats. Almost all jobs are
 supported, some of them will be supported soon.
 
 HUGO takes Python written markdown files and generates a website
@@ -19,11 +21,11 @@ that can be seen either locally or via GitHub pages.
 
 ## Installation
 
-Due to the major changes in the code, some new libraries are required as well as a HUGO instance.
-Code was tested on Windows 10/11 with and without WSL2, on Ubuntu 20.04 and CentOS7.
+Due to the major changes in the code, some new libraries and a HUGO instance are required.
+Code was tested on Windows 10/11 with and without WSL2, on Ubuntu 20.04, and CentOS7.
 
 ### Install dependencies
-Before running the program one needs to install all dependencies in either conda environment or Python
+Before running the program, one needs to install all dependencies in either conda environment or Python
 virtual environment.
 
 #### Python Environment way
@@ -37,7 +39,7 @@ wget -q -P . https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.
 bash ./Miniconda3-latest-Linux-x86_64.sh
 ```
 
-Agree for to the license agreement and add conda to the PATH. Activate conda for bash:
+Agree to the license agreement and add conda to the PATH. Activate conda for bash:
 
 ```bash
 conda init bash
@@ -50,7 +52,7 @@ bash
 
 You should see the (base) in front of your username now.
 
-2. Create conda environment and Install dependencies. Agree [y] on everything.
+2. Create conda environment and install dependencies. Agree [y] on everything.
 ```bash
 conda create --name FollowRelion python=3.9
 conda activate FollowRelion
@@ -120,7 +122,7 @@ python follow_relion_gracefully_run.py --help
 usage: follow_relion_gracefully_run.py [-h] --i I [--h H] [--o O] [--force]
                                        [--n N] [--debug] [--t T] [--single]
 
-Follow Relion Gracefully: web based job GUI
+Follow Relion Gracefully: web-based job GUI
 
 optional arguments:
   -h, --help  show this help message and exit
@@ -144,7 +146,7 @@ python follow_relion_gracefully_run.py --i /mnt/staging/Dawid/test/relion40_tuto
 ./hugo server --disableLiveReload
 ```
 
-* For continues updates it is slightly more tricky:
+* For continuous updates it is slightly more tricky:
 
 ```bash
 # Use & at the end of the python command, so it can run in the background
@@ -158,7 +160,7 @@ Now Hugo should update content based on changes in the Relion folder.
 For this you will need to fork the repository. It should build on its own at the https://yourgithub.github.io/Follow_Relion_gracefully/
 
 This will work, however, only if it is public repo. You don't want it for your secret project, do you?
-Hosting private repo website is only paid option for Github.
+Hosting a private repo website is available only in the paid option for Github.
 
 Next, clone your forked repo, remove content/jobs:
 ```bash
@@ -171,26 +173,27 @@ git add . && git commit -m "my first commit" && git push
 ```
 
 This should send the newly processed files to Github and host a website. On your forked repo check 
-actions and see whether site building is running.
+actions and see whether site-building is running.
 
 * Working from cluster etc.
-You can theoretically do this from cluster and connect via your browser as soon as
+You can theoretically do this from the cluster and connect via your browser as soon as
 port forwarding can be established. To do the forwarding, try:
 ```bash
 ssh -f username@cluster -L 1313:localhost:1313 -N
 ```
-and check your https://localhost:1313 for forwarding.
+And check your https://localhost:1313 for forwarding.
 
 ## Troubleshooting
 
-* Whenever job finishes with error, it will say on the generated website that something
-went wrong. It can be theoretically everything. The most common are jobs that were cancelled
-and do not have required files for plotting.
+* Whenever a job finishes with an error, it will say on the generated website that something
+went wrong. It can be theoretically everything. The most common are jobs that were canceled
+and did not have the required files for plotting.
 
-* Volume rendering is not showing what I want --> this is the main drawback of plotly that to make it smooth I had to force fourier cropping of volumes to 100px. Then, marching cubes from skimage is used to calculate the isosurface at the best contour level. Everything what is automatic doesn't usually work well. If you had ideas how to fix that let me know!
+* Volume rendering is not showing what I want --> this is the main drawback of plotly that to make it smooth, I had to force Fourier cropping of volumes to 100px. Then, marching cubes function from skimage is used to calculate the isosurface at the best contour level. Everything that is automatic doesn't usually work well. If you have ideas on how to fix that, let me know!
 * If something with Python doesn't work make sure that any other environment is not activated!
-* Because this script reads *default_pipeline.star* file manually run jobs won't be processed by script. There should be a way to add the to the pipeline but not sure how.
-* If HUGO shows wrong content check the markdown files (*.md) in the job folders. The host description might be the issue.
+* Because this script reads *default_pipeline.star* file manually run jobs won't be processed by the script. There should be a way to add the to the pipeline but not sure how.
+* If HUGO shows wrong content, check the markdown files (*.md) in the job folders. For example, the host description might be the issue.
+* 2D classification preview is not great for more than 100 classes. Need to figure out how to plot it better.
 
 
 ## To-do
