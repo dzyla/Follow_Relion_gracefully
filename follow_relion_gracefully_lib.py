@@ -18,6 +18,56 @@ PATH_CHARACTER = '/' if os.name != 'nt' else '\\'
 PLOT_HEIGHT = 500
 MAX_MICS = 30
 
+def write_config(hostname):
+    config = open('config.toml', 'w')
+    print('''
+baseurl = "{}"
+title = "Follow Relion Gracefully"
+languageCode = "en-us"
+
+# Pagination
+paginate = 10
+paginatePath = "page"
+
+# Copyright
+copyright = "2021 / Follow Relion Gracefully / Dawid Zyla"
+
+# Highlighting
+pygmentsCodefences = true
+pygmentsCodeFencesGuessSyntax = true
+pygmentsoptions = "linenos=table"
+pygmentsStyle = "vs"
+
+# Taxonomies
+[taxonomies]
+  tag = "tags"
+  category = "categories"
+
+# Menu
+[menu]
+  # Header
+
+  # Footer
+  [[menu.footer]]
+    url = "https://github.com/dzyla/Follow_Relion_gracefully"
+    name = "GitHub"
+    weight = 1
+
+  [[menu.footer]]
+    url = "mailto:dzyla@lji.org"
+    name = "Contact"
+    weight = 2
+
+
+# Links format
+[permalinks]
+  posts = "/posts/:year/:month/:title/"
+
+[params]
+  # Date format (default: Jan 2, 2006)
+  datefmt  = "Jan 2, 2006"
+  plotly= true'''.format(hostname), file=config)
+
 def parse_star_model(file_path, loop_name):
     doc = cif.read_file(file_path)
 

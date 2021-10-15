@@ -10,6 +10,7 @@ Github: https://github.com/dzyla/Follow_Relion_gracefully/
 v3
 '''
 
+
 def directory_files(path):
     list_of_files = filter(os.path.isfile,
                            glob.glob(path + '/**/*', recursive=True))
@@ -51,6 +52,7 @@ N_CPUs = args.n
 
 # Force process of all folders, even if the same. Good for development.
 FORCE_PROCESS = args.force
+
 
 # Define the function for parallel execution
 def run_job(quequing_elem_):
@@ -275,23 +277,7 @@ if __name__ == "__main__":
     dir_check_old = 'I am just an example string'
 
     # Change hostname in the config.toml file
-    config_file = open('config.toml', 'r')
-    config_new = []
-    save_new_config = False
-    config_ = config_file.readlines()
-    config_file.close()
-    for line in config_:
-        if 'baseurl' in line:
-            if line != 'baseurl = "{}"\n'.format(HOSTNAME):
-                line = 'baseurl = "{}"\n'.format(HOSTNAME)
-                save_new_config = True
-
-        config_new.append(line)
-
-    if save_new_config:
-        config_new_file = open('config.toml', 'w')
-        for line in config_new:
-            print(line, file=config_new_file, end='')
+    write_config(hostname=args.h)
 
     try:
         while True:
@@ -304,7 +290,6 @@ if __name__ == "__main__":
 
                 # Load pipeline star and check processes
                 pipeline = FOLDER + 'default_pipeline.star'
-
 
                 if os.path.exists(pipeline):
                     pipeline_star = parse_star_whole(pipeline)
@@ -333,7 +318,7 @@ if __name__ == "__main__":
 
                 dir_check_old = dir_check
 
-                #Disable forced processing and process only updated folders
+                # Disable forced processing and process only updated folders
                 FORCE_PROCESS = False
 
                 if args.single:
