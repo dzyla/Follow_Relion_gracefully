@@ -191,6 +191,7 @@ and did not have the required files for plotting.
 * If something with Python doesn't work make sure that any other environment is not activated!
 * Because this script reads *default_pipeline.star* file manually run jobs won't be processed by the script. There should be a way to add the to the pipeline but not sure how.
 * If HUGO shows wrong content, check the markdown files (*.md) in the job folders. For example, the host description might be the issue.
+* 2D classification preview is not great for more than 100 classes. Need to figure out how to plot it better.
 
 
 ## To-do
