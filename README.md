@@ -5,7 +5,14 @@
 
 **Data coming from [Relion4 tutorial](https://relion.readthedocs.io/en/release-4.0/)**
 
-**Non-Profit Open Software License 3.0 (NPOSL-3.0)**
+Non-Profit Open Software License 3.0 (NPOSL-3.0)
+
+
+
+## Liked it and contributed to your research? You can cite me! :)
+
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5571170.svg)](https://doi.org/10.5281/zenodo.5571170)
+
 
 ## Description
 This is the 3rd iteration of my Relion job preview script. Previous versions focused on a single job and its statistics. Now 
