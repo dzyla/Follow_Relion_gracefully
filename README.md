@@ -5,6 +5,8 @@
 
 **Data coming from [Relion4 tutorial](https://relion.readthedocs.io/en/release-4.0/)**
 
+**Non-Profit Open Software License 3.0 (NPOSL-3.0)**
+
 ## Description
 This is the 3rd iteration of my Relion job preview script. Previous versions focused on a single job and its statistics. Now 
 all jobs can be previewed using a friendly web browser interface.
