@@ -221,7 +221,7 @@ def run_job(quequing_elem_):
                     plotly_string = '\n'.join(plotly_string)
 
         except Exception as e:
-            plotly_string = 'Something went wrong\n {}'.format(e)
+            plotly_string = 'Something went wrong: \n\n  {}'.format(e)
             print('Something went wrong with {}'.format(job_name))
             failed = True
 

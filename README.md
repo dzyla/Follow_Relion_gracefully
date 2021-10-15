@@ -3,6 +3,8 @@
 
 **Live demo: https://dzyla.github.io/Follow_Relion_gracefully/**
 
+**Data coming from [Relion4 tutorial](https://relion.readthedocs.io/en/release-4.0/)**
+
 ## Description
 This is a 3rd iteration of my Relion job preview script. Previous versions focused on a single job and its statistics. Now 
 all jobs can be previewed using friendly web browser interface.
