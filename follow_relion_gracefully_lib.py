@@ -1050,14 +1050,18 @@ def plot_cls3d_stats(path_data, HUGO_FOLDER, job_name):
 
 
 def get_note(path_):
-    file = open(path_)
-    file_data = str(file.read())
-    file_data = file_data.replace('++++', '\n')
-    file_data = file_data.replace("`", '')
+    if os.path.exists(path_):
+        file = open(path_)
+        file_data = str(file.read())
+        file_data = file_data.replace('++++', '\n')
+        file_data = file_data.replace("`", '')
 
-    file_data = file_data.replace('which', '\nwhich')
+        file_data = file_data.replace('which', '\nwhich')
 
-    file.close()
+        file.close()
+
+    else:
+        file_data = 'Process queuing. Waiting for the run.'
     return file_data
 
 
