@@ -201,6 +201,7 @@ and did not have the required files for plotting.
 * Because this script reads *default_pipeline.star* file manually run jobs won't be processed by the script. There should be a way to add the to the pipeline but not sure how.
 * If HUGO shows wrong content, check the markdown files (*.md) in the job folders. For example, the host description might be the issue.
 * 2D classification preview is not great for more than 100 classes. Need to figure out how to plot it better.
+* If hugo is run remotely and user does not have a write permission to the folder the website does not update. In this case, either change persmission of the folder, run hugo on your computer or connect via port tunneling.
 
 
 ## To-do
