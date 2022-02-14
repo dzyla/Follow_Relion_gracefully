@@ -12,6 +12,7 @@ Non-Profit Open Software License 3.0 (NPOSL-3.0)
 ## Liked it and contributed to your research? You can cite me! :)
 
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5571170.svg)](https://doi.org/10.5281/zenodo.5571170)
+### 1.Dawid Zyla. dzyla/Follow_Relion_gracefully: v3. (2021) doi:10.5281/zenodo.5571170.
 
 
 ## Description
