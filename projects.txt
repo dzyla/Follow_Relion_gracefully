@@ -1,0 +1,2 @@
+/mnt/f/linux/relion40_tutorial_precalculated_results/
+/mnt/f/linux/relion40_sta_tutorial_data/
