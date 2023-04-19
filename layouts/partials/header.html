@@ -1,0 +1,24 @@
+{{ block "header" . }}
+<head>
+    
+</head>
+
+<div class="header">
+    <h1>
+        <a class="heading1" href="{{ .Site.BaseURL | absURL }}">{{- .Site.Title -}}</a>
+        <div class="header-menu">
+            {{- range .Site.Menus.main -}}
+            {{ if eq (hasPrefix .URL "mailto:") true }}
+            <a class="heading1" href="{{ .URL }}">{{- .Name -}}</a>
+            {{ else }}
+            <a class="heading1" href="{{ .URL | absURL }}">{{- .Name -}}</a>
+            {{- end -}}
+            {{ end }}
+            <h1 id="toggleDarkMode" class="toggle-dark-mode"><i class="fas fa-sun"></i></h1>
+
+        </div>
+        
+    </h1>
+    
+</div>
+{{ end }}

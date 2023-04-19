@@ -1,0 +1,29 @@
+{{ define "main" }}
+
+<!-- <header>
+    <h1>
+        {{- .Title | markdownify -}}
+    </h1>
+</header> -->
+
+
+<ul id="all-categories">
+  {{ range $name, $taxonomy := .Site.Taxonomies.categories }}
+  {{/*  change from /categories/ to categories. first / was indicating root?  */}}
+    <a href="{{ "categories/" | relLangURL }}{{ $name | urlize }}">[{{ humanize $name }}]</a>
+  {{ end }}
+</ul>
+
+{{/* List all pages */}}
+<ul>
+    {{ range .Paginator.Pages }}
+    <li>
+        <a href="{{ .RelPermalink }}">
+            {{- .Title | markdownify }}
+        </a>
+        {{ partial "post_meta.html" . }}
+    </li>
+    {{ end }}
+</ul>
+{{ template "_internal/pagination.html" . }}
+{{ end }}

@@ -1,0 +1,21 @@
+<h2>Project Library</h2>
+{{ $path := "content" }}
+{{ $projectFile := "projects.txt" }}
+{{ $projectFilePath := path.Join $path $projectFile }}
+{{ $folders := where (readDir $path) "IsDir" true }}
+
+
+{{ with readFile $projectFilePath }}
+  {{ $trimmedContent := trim . "\n" }}
+  {{ $projects := split $trimmedContent "\n" }}
+  {{ $sortedProjects := sort $projects }}
+
+  <ul class="custom-list">
+    {{ range $index, $folder := $folders }}
+        <li><a href="{{ $folder.Name | urlize }}">{{ $folder.Name }}</a>
+          <span style="font-size: 80%;">&#x5b; Project path: {{ index $sortedProjects $index }} &#x5d;</span>
+        </li>
+        <br>
+      {{ end }}
+  </ul>
+{{ end }}

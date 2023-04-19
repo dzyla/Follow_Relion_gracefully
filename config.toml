@@ -1,0 +1,66 @@
+
+baseurl = "http://dzyla.github.io/Follow_Relion_gracefully/"
+title = "Follow Relion Gracefully"
+languageCode = "en-us"
+
+# Pagination
+paginate = 10
+paginatePath = "page"
+
+# Copyright
+copyright = "Dawid Zyla 2023 / Follow Relion Gracefully"
+
+# Highlighting
+pygmentsUseClasses = true
+pygmentsCodefences = true
+pygmentsStyle = 'vs'
+
+# Taxonomies
+[taxonomies]
+  tag = "tags"
+  jobtype = "jobtype"
+  project = "project"
+
+# Menu
+[menu]
+  # Header
+
+  # Footer
+  [[menu.footer]]
+    url = "https://github.com/dzyla/Follow_Relion_gracefully"
+    name = "GitHub"
+    weight = 1
+
+  [[menu.footer]]
+    url = "mailto:dzyla@lji.org"
+    name = "Contact"
+    weight = 2
+
+
+# Links format
+[permalinks]
+  posts = "/posts/:year/:month/:title/"
+
+[params]
+  # Date format (default: Jan 2, 2006)
+  datefmt  = "Jan 2, 2006"
+  plotly= true
+  theme_style = "modern"
+
+
+[markup]
+  [markup.highlight]
+    anchorLineNos = false
+    codeFences = true
+    guessSyntax = false
+    hl_Lines = ''
+    hl_inline = false
+    lineAnchors = ''
+    lineNoStart = 1
+    lineNos = true
+    lineNumbersInTable = true
+    noClasses = true
+    noHl = false
+    tabWidth = 4
+
+  

@@ -1,0 +1,31 @@
+---
+title: job031
+jobname: LocalRes/job031/
+status: Succeeded
+date: 2021-06-02 01:36:35
+time: 01:36:35
+jobtype: [LocalRes]
+project: [relion40_tutorial_precalculated_results]
+---
+
+#### Job alias: None
+
+### Local Resolution Volume slice
+{{< img src="LocalRes_job031_slices.png" >}}
+### Local Resolution Histogram
+{{< img src="LocalRes_job031_hist.png" >}}
+
+#### Job command(s):
+
+```bash
+
+ 
+ Executing new job on Wed Jun  2 09:29:37 2021
+ 
+ with the following command(s): 
+
+which relion_postprocess_mpi --locres --i Refine3D/job029/run_half1_class001_unfil.mrc --o LocalRes/job031/relion --angpix 1.244 --adhoc_bfac -30 --mtf mtf_k2_200kV.star --mask MaskCreate/job020/mask.mrc  --pipeline_control LocalRes/job031/
+ 
+ 
+
+

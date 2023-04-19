@@ -1,0 +1,31 @@
+{{ $dateFormat := default "Jan 2, 2006" (index .Site.Params "datefmt") }}
+
+
+
+<div class="post-meta">
+  {{/* Display the date if set */}}
+  {{- if not .Date.IsZero -}}
+  <span style="font-size: 80%;">  
+  Job last modified: &#x5b;
+  <time datetime="{{ .Date.Format " Jan 2, 2006" }}">{{ .Date.Format "Mon, 2 Jan, 2006" }}</time>
+  {{print .Params.time}}
+  &#x5d;</span>
+  {{- end -}}
+
+{{/* Display taxonomies */}}
+{{- range $taxo, $taxonomy := .Site.Taxonomies }}
+  {{- $elems := $.Param $taxo }}
+  {{- if $elems }}
+    <span style="font-size: 80%;">
+      {{ $taxo | humanize }} &#x5b;
+      {{- range $name := $elems }}
+        {{- with $.Site.GetPage (lower (printf "/%s/%s" $taxo (urlize $name))) }}
+        <a href="{{ .Permalink }}">{{ $name }}</a>
+      {{- end }}
+      {{- end }}
+      &#x5d;
+    </span>
+  {{- end }}
+{{- end }}
+
+</div>

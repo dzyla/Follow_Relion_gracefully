@@ -1,0 +1,5 @@
+/mnt/f/linux/230416_Relion4_precalc/
+/mnt/f/linux/relion40_tutorial_precalculated_results
+/mnt/f/linux/relion40_sta_tutorial_data
+/mnt/f/linux/relion40_tutorial_precalculated_results/
+/mnt/f/linux/relion40_sta_tutorial_data/

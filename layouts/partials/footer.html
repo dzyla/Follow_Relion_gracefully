@@ -1,0 +1,63 @@
+{{ block "footer" . }}
+<div class="footer">
+    {{/* Display links if available */}}
+    {{ if .Site.Menus.footer }}
+    <div class="footer-links">
+        {{- range .Site.Menus.footer -}}
+        {{ if eq (hasPrefix .URL "mailto:") true }}
+        <a href="{{ .URL }}">{{- .Name -}}</a>
+        {{ else }}
+        <a href="{{ .URL | relLangURL }}">{{- .Name -}}</a>
+        {{- end -}}
+        {{ end }}
+    </div>
+    {{ end }}
+
+    {{/* Display copyright if available */}}
+    {{ if .Site.Copyright }}
+    <div class="copyright" style="font-size: 80%;">
+        {{- .Site.Copyright -}}
+    </div>
+    {{ end }}
+</div>
+{{ end }}
+<script>
+    // Check dark mode preference and apply it
+    function checkDarkMode() {
+        const root = document.documentElement;
+        const toggleIcon = document.getElementById('toggleDarkMode').querySelector('i');
+
+        if (localStorage.getItem('darkMode') === 'true') {
+            root.classList.add('dark-mode');
+            toggleIcon.classList.remove('fa-moon');
+            toggleIcon.classList.add('fa-sun');
+        } else {
+            root.classList.remove('dark-mode');
+            toggleIcon.classList.remove('fa-sun');
+            toggleIcon.classList.add('fa-moon');
+        }
+    }
+
+    // Toggle the dark mode and save it in localStorage
+    function toggleDarkMode() {
+        const root = document.documentElement;
+        const toggleIcon = document.getElementById('toggleDarkMode').querySelector('i');
+
+        root.classList.toggle('dark-mode');
+        localStorage.setItem('darkMode', root.classList.contains('dark-mode'));
+
+        if (root.classList.contains('dark-mode')) {
+            toggleIcon.classList.remove('fa-moon');
+            toggleIcon.classList.add('fa-sun');
+        } else {
+            toggleIcon.classList.remove('fa-sun');
+            toggleIcon.classList.add('fa-moon');
+        }
+    }
+
+    // Event listener for the toggleDarkMode button
+    document.getElementById('toggleDarkMode').addEventListener('click', toggleDarkMode);
+
+    // Apply dark mode if it was previously set
+    checkDarkMode();;
+    </script>

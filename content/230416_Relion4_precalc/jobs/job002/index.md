@@ -1,0 +1,31 @@
+---
+title: job002
+jobname: MotionCorr/job002/
+status: Succeeded
+date: 2021-05-25 06:06:48
+time: 06:06:48
+jobtype: [MotionCorr]
+project: [230416_Relion4_precalc]
+---
+
+#### Job alias: None
+
+### Motion statistics per micrograph. Limitted to 2000 max
+{{< img src="MotionCorr_job002_index.png" >}}
+### Motion histograms
+{{< img src="MotionCorr_job002_hist.png" >}}
+
+#### Job command(s):
+
+```bash
+
+ 
+ Executing new job on Tue May 25 13:56:50 2021
+ 
+ with the following command(s): 
+
+which relion_run_motioncorr --i Import/job001/movies.star --o MotionCorr/job002/ --first_frame_sum 1 --last_frame_sum -1 --use_own  --j 12 --float16 --bin_factor 1 --bfactor 150 --dose_per_frame 1.277 --preexposure 0 --patch_x 5 --patch_y 5 --eer_grouping 32 --gainref Movies/gain.mrc --gain_rot 0 --gain_flip 0 --dose_weighting  --grouping_for_ps 3   --pipeline_control MotionCorr/job002/
+ 
+ 
+
+
