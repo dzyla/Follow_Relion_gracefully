@@ -388,11 +388,16 @@ if __name__ == "__main__":
             # When too many write requests are received Hugo likes to crash.
             if args.server:  # If Hugo server flag is set
                 if FIRST_RUN:
+                    # kill server
                     check_kill_process_by_name('hugo')
 
+                # Check if server is running
                 SERVER_RUNNING = check_kill_process_by_name(
                     'hugo', report=True)  # Check if Hugo server is running
                 log.debug(f'Checking server status. Running: {SERVER_RUNNING}')
+
+            # Generate projects.txt file with paths corresponding to project folders in content folder
+            find_project_paths()
 
             # Run the Hugo server if requested
             if args.server and not SERVER_RUNNING:  # If Hugo server flag is set and it's not running
@@ -424,7 +429,6 @@ if __name__ == "__main__":
                 SERVER_RUNNING = True  # Set SERVER_RUNNING flag to true
                 log.info(f'SERVER_RUNNING : {SERVER_RUNNING}')
 
-            find_project_paths()
 
             if args.single:
                 print(f'Single run complete. Exiting...')
