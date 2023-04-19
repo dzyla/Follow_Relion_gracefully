@@ -19,9 +19,10 @@
 ### :sparkles: Liked it and contributed to your research? You can cite my work! :sparkles:
 
   
-[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5571170.svg)](https://doi.org/10.5281/zenodo.5571170)
 
-#### 1.Dawid Zyla. dzyla/Follow_Relion_gracefully: v3. (2021) doi:10.5281/zenodo.5571170.
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.7844516.svg)](https://doi.org/10.5281/zenodo.7844516)
+
+#### Dawid Zyla. (2023). dzyla/Follow_Relion_gracefully: v4 (Version update4). Zenodo. https://doi.org/10.5281/zenodo.7844516
 
   
   
