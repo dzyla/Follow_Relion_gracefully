@@ -5,24 +5,20 @@
 
   
 
-**Live demo: https://dzyla.github.io/Follow_Relion_gracefully/**
+* **Live demo: https://dzyla.github.io/Follow_Relion_gracefully/**
 
   
 
-**Data coming from [Relion4 tutorial](https://relion.readthedocs.io/en/release-4.0/) and [Relion4 STA](https://relion.readthedocs.io/en/release-4.0/STA_tutorial/index.html)**
+* **Data coming from [Relion4 tutorial](https://relion.readthedocs.io/en/release-4.0/) and [Relion4 STA](https://relion.readthedocs.io/en/release-4.0/STA_tutorial/index.html)**
 
   
 
-Non-Profit Open Software License 3.0 (NPOSL-3.0)
+* **Non-Profit Open Software License 3.0 (NPOSL-3.0)**
 
   
-  
-  
-
 ### :sparkles: Liked it and contributed to your research? You can cite my work! :sparkles:
 
   
-
 [![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.5571170.svg)](https://doi.org/10.5281/zenodo.5571170)
 
 #### 1.Dawid Zyla. dzyla/Follow_Relion_gracefully: v3. (2021) doi:10.5281/zenodo.5571170.
@@ -42,21 +38,22 @@ What's more, v4 automatically downloads the relevant Hugo executable and execute
 
 ## v4 features:dizzy:
 * Python script to parse Relion's folder structure and generate job results preview that enables better understanding of the data and allows the user to access data quality without having to open a single file
-* Hugo server that displays job results in a web browser interface
+* The Hugo server offers a straightforward web browser interface to view job results in an aesthetically pleasing way
 * Multi platform support (Windows, Linux, Mac OS [not tasted, should work like Linux, hopefully])
-* Experience the convenience of Multi-Project Support:twisted_rightwards_arrows: - keeping all of your Relion data in one place! Generate comprehensive plots and processing statistics from multiple projects effortlesly. Works well as Relion electronic notebook:notebook:!
-* Relion 4 Tomography support: do not limit yourself to SPA, STA is here for you (partcially).
+* Convenience of Multi-Project Support:twisted_rightwards_arrows: - keeping all of your Relion data in one place! Generate comprehensive plots and processing statistics from multiple projects effortlesly. Works well as Relion electronic notebook:notebook:!
+* Relion 4 Tomography support: do not limit yourself to SPA, STA is here for you (partcially). `#teamtomo`
 * Rewritten code for speed and removed redundancys. Hopefully made code more readable and stable. #ChatGPT #GPT4
 * Publication-ready figures (FSC, Class projections, and angular distrubution plots)
 * Monitor the particles from Select and Extract processes: visualize selected particles and find out numbers of selected/extracted particles.
 * Debugger support: if something fails `--debug` will print problems in the log file. Might be useful for identifying problems.
 * Dark mode🌜! No need to strain your eyes while working night shifts!
+* `#OpenSoftwareAcceleratesScience`
 
 ## Installation:rocket:
 
-No major changes were made from v3, though a few new libraries have been added. The code has been tested on Windows 10/11, WSL2 and Ubuntu 22.04. 
+Minor changes were made from `v3`, though a few new libraries have been added. The code has been tested on `Windows 10/11`, `WSL2` and `Ubuntu 22.04`. 
 
-For CentOS 7, the Python part should run as normal (assuming Python 3.10 and conda are being used); however, Hugo v111+ requires newer versions of GCC, so it won't work. Alas, it's time to move on from CentOS 7.
+For `CentOS 7`, the Python part should run as normal (assuming Python 3.10 and conda are being used); however,`Hugo v111+` requires newer versions of GCC for extended version, and might have problems running. However, the version automatically downloaded should be compatible with CentOS7. Alas, it's time to move on from CentOS 7. 
 
   
 
@@ -72,7 +69,7 @@ If conda is already installed, the process should be relatively straightforward 
 
   
 
-1. Install miniconda3:
+1. Install miniconda3 (*no root required*):
 
 ```bash
 wget -q  -P  .  https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
@@ -82,7 +79,7 @@ bash ./Miniconda3-latest-Linux-x86_64.sh
 
   
 
-Agree to the license agreement and add conda to the PATH. Activate conda for bash:
+Agree to the license agreement  `yes` and add conda to the PATH. Activate conda for bash:
 
 
 
@@ -101,7 +98,10 @@ bash
 
   
 
-You should see the (base) in front of your username now.
+You should see the (base) in front of your username now:
+```bash
+(base) dzyla@GPU0
+```
 
   
 
@@ -111,7 +111,13 @@ You should see the (base) in front of your username now.
 conda create  -y  --name  FollowRelion  python=3.10
 
 conda activate  FollowRelion
-
+```
+Now you should see:
+```bash
+(FollowRelion) dzyla@GPU0
+```
+Installing dependencies:
+```bash
 pip install  joblib  matplotlib  mrcfile  pandas  plotly  gemmi  scikit-image  seaborn  requests  psutil
 ```
 
@@ -127,7 +133,7 @@ cd  Follow_Relion_gracefully
 
   
 
-The downloading process of Hugo is now managed through a Python function, which should ensure that you receive the version corresponding to your operating system.
+The downloading process of Hugo is now managed through a Python function, which should ensure that you receive the version corresponding to your operating system and platform.
 
 5. Type:
 
@@ -174,20 +180,40 @@ options:
 
   
 
-* An example of how to use live server updates and set up a new project:
-  
-```bash
-#Activate conda enviroment if not activated yet
-conda activate  FollowRelion
+##### An example of how to use live server updates and set up a new project:
 
-# use multiple projects by --i /folder1/ /folder2/ /folder3/
+Activate conda enviroment if not activated yet
+```bash
+conda activate  FollowRelion
+```
+
+Use multiple projects by --i /folder1/ /folder2/ /folder3/
+```bash
 python follow_relion_gracefully_run.py --i /mnt/f/linux/relion40_tutorial_precalculated_results/ /mnt/f/linux/relion40_sta_tutorial_data/ --server --new
 ```
 
 Hugo now refreshes its content according to the changes made in the Relion directories.
   
+##### Working from remote workstation or cluster:
 
-* Hosting own GitHub page:globe_with_meridians:
+By using the new Hugo server configuration, it is now possible now to host Hugo server on a remote workstation. Nevertheless, it's important to open the firewall ports used by Hugo (the default being 1313).
+
+When running on remote workstation use `--h IP_ADDRESS`, eg. `--h 10.0.90.120`
+
+```bash
+
+python follow_relion_gracefully_run.py --i /mnt/f/linux/relion40_tutorial_precalculated_results/ /mnt/f/linux/relion40_sta_tutorial_data/ --server --new --h 10.0.90.120
+```
+To set up Hugo server, you can use the IP address of your workstation and make sure the port is open. If that doesn't work, you may want to try port forwarding instead:
+
+```bash
+
+ssh -f  username@workstation -L  1313:localhost:1313  -N
+```
+
+And check your https://localhost:1313 for forwarding.
+
+##### Hosting own GitHub page:globe_with_meridians:
 
   
 
@@ -220,29 +246,6 @@ git add  . && git commit  -m  "my first commit" && git push
 This should send the newly processed files to Github and build a website. On your forked repository check actions and see whether site-building is running.
 
   
-
-* Working from remote workstation or cluster:
-
-By using the new Hugo server configuration, it is now possible now to host Hugo server on a remote workstation. Nevertheless, it's important to open the firewall ports used by Hugo (the default being 1313).
-
-When running on remote workstation use `--h IP_ADDRESS`, eg. `--h 10.0.90.120`
-
-```bash
-
-python follow_relion_gracefully_run.py --i /mnt/f/linux/relion40_tutorial_precalculated_results/ /mnt/f/linux/relion40_sta_tutorial_data/ --server --new --h 10.0.90.120
-```
-To set up Hugo server, you can use the IP address of your workstation and make sure the port is open. If that doesn't work, you may want to try port forwarding instead:
-
-```bash
-
-ssh -f  username@workstation -L  1313:localhost:1313  -N
-
-```
-
-And check your https://localhost:1313 for forwarding.
-
-  
-
 ## Troubleshooting:wrench:
 
   
@@ -263,20 +266,21 @@ And check your https://localhost:1313 for forwarding.
 * If you're running Hugo remotely but don't have write permission to the folder, the website won't update. Try other options such as changing the folder permissions, running Hugo on your computer, or connecting via port tunneling.
 * If you don't like how the plots look like (colors, FSC scales, etc) you can try modifying the `follow_relion_gracefully_lib.py` file. All jobs should relatively well described.
 
+* Mac support was not tested. I assume that is similar to Linux enough that once conda envirment is set it should work as expected. If not, please let me know!
 * Finally, not all Tomo jobs are currently supported, but I hope to have access to pre-calculated data soon so I can include them.
   
   
 
 ## To-do:memo:
 
-* Preview of the remaining Tomo jobs
+* Preview of the remaining Tomo jobs (need access to fully calculated project)
 * Preview of non-default jobs (Multi-Body, External, Particle subtractions)
 
 * Better volume preview
-
+* Better data visualization, more statistics, everything publication-ready
 * Possibility to download volumes (*ala* cryoSPARC) (Is it really necessary?)
 
-* Follow job flow (what is input and output from current job)
+* Job flow chart overview. Who is father of whom and which jobs are realted.
 
 * Can you run Relion *via* static website generator? (probably not)
 * Optimization of speed and RAM usage

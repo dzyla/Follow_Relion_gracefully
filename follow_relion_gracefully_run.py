@@ -244,7 +244,7 @@ project: [{project_name}]
 
 ```bash
 {note}
-""", file=file)
+""".encode("utf-8"), file=file)
 
         # Print job name on successful completion
         if process_job or FORCE_PROCESS:
