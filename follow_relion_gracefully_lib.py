@@ -17,6 +17,7 @@ import subprocess
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from concurrent.futures import ProcessPoolExecutor
+import socket
 
 # Data manipulation and computation
 import numpy as np
@@ -108,6 +109,21 @@ class FolderMonitor:
         else:
             return False
 
+def get_ip_address():
+    try:
+        # Create a temporary UDP socket to connect to an external address
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as temp_socket:
+            # Connect to an arbitrary address and port, without sending any data
+            temp_socket.connect(("8.8.8.8", 80))
+            # Get the IP address of the workstation
+            ip_address = temp_socket.getsockname()[0]
+        return ip_address
+    except Exception as e:
+        print(f"Error occurred while retrieving IP address: {e}")
+        return None
+    
+    
+    
 def find_project_paths():
     # 1. Read the project_paths.txt file and load each line as a list element
     with open("resources/project_paths.txt", "r") as f:
@@ -1412,8 +1428,9 @@ def plot_combined_classes(class_paths, job_name, HUGO_FOLDER):
     cols = min(5, num_classes)
     rows = math.ceil(num_classes / 5)
 
-    fig = sp.make_subplots(rows=rows, cols=cols, specs=[[{'type': 'scene'}] * cols] * rows,
-                           subplot_titles=tuple([f"Class {num}" for num in range(1, num_classes + 1)]))
+    fig = sp.make_subplots(rows=rows, cols=cols, specs=[[{'type': 'scene'}] * cols] * rows)
+
+    annotations = []
 
     for n, cls_path in enumerate(class_paths):
         mrc_cls_data = mrcfile.open(cls_path, permissive=True).data
@@ -1437,13 +1454,17 @@ def plot_combined_classes(class_paths, job_name, HUGO_FOLDER):
                 margin=dict(l=0, r=0, t=0, b=0)
             )
 
-    labels = [{'text': f'Class {i + 1}', 'x': 1 / num_classes * i + 0.5 * 1 / num_classes, 'y': 0.9, 'showarrow': False,
-               'font': {'size': 16}} for i in range(len(class_paths))]
+            # Set the position for each subplot title
+            title_x = (col - 1) / cols + 0.5 / cols
+            title_y = 1 - (row - 1) * 0.9 / rows
+            annotations.append(dict(text=f"Class {n + 1}", x=title_x, y=title_y, showarrow=False, font=dict(size=16),
+                                    xref="paper", yref="paper", xanchor="center", yanchor="top"))
 
-    fig.update_layout({'annotations': labels})
+    # Update the layout with the annotations
+    fig.update_layout(annotations=annotations)
 
     shortcode = write_plot_get_shortcode(
-        fig, 'cls3d_combined_', job_name, HUGO_FOLDER, fig_height=400)
+        fig, 'cls3d_combined_', job_name, HUGO_FOLDER, fig_height=rows*300)
 
     return "#### Combined Classes:", shortcode
 
@@ -1512,6 +1533,69 @@ def plot_projections(path_data, HUGO_FOLDER, job_name, class_paths, class_dist_=
         plt.close()
         return "#### Class Projections:", shortcode
 
+def plot_projections(path_data, HUGO_FOLDER, job_name, class_paths, class_dist_=None, string='Class', cmap='gray', extra_name=''):
+
+    if class_paths is not None and len(class_paths) > 1:
+        projections = plot_3dclasses(class_paths)
+
+        plt.close()
+        fig, ax = plt.subplots(figsize=(12, 8))
+        ax.grid(False)
+
+        # Display the cls3d_projections image
+        ax.imshow(projections, cmap=cmap)
+
+        # Configure X-axis ticks and labels. If mask or Refine skip adding distributions
+        labels_positions_x = np.linspace(1 / len(class_paths) * projections.shape[1], projections.shape[1],
+                                         len(class_paths)) - 0.5 * 1 / len(class_paths) * projections.shape[1]
+
+        if class_dist_ is not None:
+            class_dist_ = np.array(class_dist_)
+            try:
+                labels_x = [
+                    f"{string} {x+1} ({round(float(class_dist_[:, -1][x]) * 100, 2)}%)" for x, cls in enumerate(class_paths)]
+            except:
+                labels_x = [
+                    f"{string} {x+1} ({round(float(class_dist_[x]) * 100, 2)}%)" for x, cls in enumerate(class_paths)]
+        else:
+            labels_x = [f"{string} {x+1}" for x, cls in enumerate(class_paths)]
+
+        ax.set_xticks(labels_positions_x)
+        ax.set_xticklabels(labels_x, rotation=90 if len(class_paths) > 8 else 0)
+        ax.xaxis.tick_top()
+
+        # Configure Y-axis ticks and labels
+        labels_positions_y = np.linspace(1 / 3 * projections.shape[0], projections.shape[0],
+                                         3) - 0.5 * 1 / 3 * projections.shape[0]
+        labels_y = ["Z", "X", "Y"]
+        ax.set_yticks(labels_positions_y)
+        ax.set_yticklabels(labels_y, fontweight='bold')
+
+        plt.close(fig)
+
+        shortcode = write_plot_get_shortcode_pyplot(
+            job_name, HUGO_FOLDER, fig, extra_name=extra_name)
+
+        return "#### Class Projections:", shortcode
+
+    else:
+        projections = plot_3dclasses(class_paths, conc_axis=1)
+        shortcodes = []
+
+        fig, axes = plt.subplots(1, 3, figsize=(12, 4))
+
+        projection_titles = ["Z Projection", "X Projection", "Y Projection"]
+
+        for idx, ax in enumerate(axes):
+            ax.imshow(projections[idx], cmap='gray')
+            ax.set_title(projection_titles[idx], fontweight='bold')
+            ax.set_xticks([])
+            ax.set_yticks([])
+
+        shortcode = write_plot_get_shortcode_pyplot(
+            job_name, HUGO_FOLDER, fig, extra_name=extra_name)
+        plt.close()
+        return "#### Class Projections:", shortcode
 
 def plot_class_distribution(class_dist_, job_name, HUGO_FOLDER, PLOT_HEIGHT):
     fig = go.Figure()

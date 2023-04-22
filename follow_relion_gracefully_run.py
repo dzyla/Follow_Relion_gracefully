@@ -42,6 +42,8 @@ def parse_args():
                         help='Automatically start HUGO server')
     parser.add_argument('--debug', action='store_true', default=False,
                         help='Change log level to debug. Helpful for checking if something goes wrong')
+    parser.add_argument('--p', type=int, default=1313,
+                        help='Port for Hugo server')
     args = parser.parse_args()
 
     return args
@@ -65,8 +67,10 @@ def process_job_if_updated(job_name, rln_path):
     # Get the last modified file from the folder and its modification time
     last_file, modTimesinceEpoc, _ = FolderMonitor(
         os.path.join(rln_path, job_name)).get_last_modified_file()
+    
     time_file = time.strftime('%Y%m%d_%H%M%S', time.localtime(
         modTimesinceEpoc)) + '.time'  # Define the time file name
+    
     log.debug(f'last_file: {last_file}')  # Log the last modified file
     log.debug(f'time_file name : {time_file}')  # Log the time file name
 
@@ -116,7 +120,7 @@ def process_job_if_updated(job_name, rln_path):
     elif time_old == time_file:  # Check if old time file and new time file are same
         process_job = False  # Set process_job to false
         # Log if the time files are same
-        log.debug(f'Time file same: {time_old == time_file}')
+        log.debug(f'Time file same: {time_old == time_file}, process_job: {process_job}')
 
     return process_job, modificationDate, modificationTime, time_file, hugo_job_path
 
@@ -165,6 +169,34 @@ def generate_per_job(job_name, rlnFOLDER, node_files, hugo_job_path):
     else:
         return ''
 
+def write_job_file(hugo_job_path, job_name, process_status, modificationDate, modificationTime, project_name, process_alias, shortcode, note):
+    log = initialize_logger(DEBUG)
+    
+    log.debug(f'Hugo job path: {hugo_job_path}, job_name: {job_name}, process_status: {process_status}, modificationDate: {modificationDate}')
+    
+    job_path = Path(hugo_job_path) / 'index.md'
+
+    with job_path.open(mode='w', encoding='utf-8') as file:
+        file.write(f"""\
+---
+title: {job_name.split('/')[1]}
+jobname: {job_name}
+status: {process_status}
+date: {modificationDate}
+time: {modificationTime}
+jobtype: [{job_name.split('/')[0]}]
+project: [{project_name}]
+---
+
+#### Job alias: {process_alias}
+
+{shortcode}
+
+#### Job command(s):
+
+```bash
+{note}
+""")
 
 def run_job(quequing_elem_):
     # Initialize a logger to track the program progress
@@ -215,6 +247,7 @@ def run_job(quequing_elem_):
             log.exception(f'Error with job {job_name}: {e}')
             plotly_string = f'Something went wrong: \n\n  {e}'
             print(f'Something went wrong with {job_name}')
+            
             try:
                 os.remove(os.path.join(hugo_job_path, time_file))
             except Exception as e:
@@ -222,29 +255,9 @@ def run_job(quequing_elem_):
             failed = True
 
         project_name = os.path.basename(os.path.normpath(rln_project_path))
+        
         # Write MD file
-        with open(os.path.join(hugo_job_path, 'index.md'), mode='w') as file:
-
-            print(f"""\
----
-title: {job_name.split('/')[1]}
-jobname: {job_name}
-status: {process_status}
-date: {modificationDate}
-time: {modificationTime}
-jobtype: [{job_name.split('/')[0]}]
-project: [{project_name}]
----
-
-#### Job alias: {process_alias}
-
-{shortcode}
-
-#### Job command(s):
-
-```bash
-{note}
-""".encode("utf-8"), file=file)
+        write_job_file(hugo_job_path, job_name, process_status, modificationDate, modificationTime, project_name, process_alias, shortcode, note)
 
         # Print job name on successful completion
         if process_job or FORCE_PROCESS:
@@ -271,8 +284,16 @@ if __name__ == "__main__":
     FOLDER = args.i
     WAIT = int(args.t)
     DEBUG = args.debug
+    PORT = args.p
 
     set_debug(DEBUG)
+    
+    # change paths from relative paths to absolute paths
+    folder_temp = []
+    for path in FOLDER:
+        folder_temp.append(os.path.abspath(path))
+    
+    FOLDER = folder_temp
     
     log = initialize_logger(DEBUG)  # Initialize the logger
     log.info(
@@ -327,7 +348,7 @@ if __name__ == "__main__":
 
                 # Only process files when the folder changes
                 # Check if folder content has changed or its first run
-                if folder_watchers[idx].check_changes() or FIRST_RUN:
+                if folder_watchers[idx].check_changes() or FIRST_RUN or DEBUG:
                     log.debug(
                         f'folder_watcher.file_modified: {folder_watchers[idx].latest_modified_file}')
 
@@ -377,8 +398,7 @@ if __name__ == "__main__":
 
                     # Execute in parallel using N_CPUs
                     # Run jobs stored in data queue using N_CPUs in parallel
-                    results = Parallel(n_jobs=N_CPUs)(delayed(run_job)(
-                        queue_element) for queue_element in data_queue)
+                    results = Parallel(n_jobs=N_CPUs)(delayed(run_job)(queue_element) for queue_element in data_queue)
                     log.info(
                         f'Loop {project_folder} took {round(time.time() - loop_start, 3)} seconds')
 
@@ -397,7 +417,8 @@ if __name__ == "__main__":
                 log.debug(f'Checking server status. Running: {SERVER_RUNNING}')
 
             # Generate projects.txt file with paths corresponding to project folders in content folder
-            find_project_paths()
+            if FIRST_RUN:
+                find_project_paths()
 
             # Run the Hugo server if requested
             if args.server and not SERVER_RUNNING:  # If Hugo server flag is set and it's not running
@@ -405,6 +426,9 @@ if __name__ == "__main__":
                     host = 'localhost'  # Set host to localhost
                 else:
                     host = args.h  # Else set host as argument h
+                    
+                    if ":" in host:
+                        host = host.split(':')[0] #if port number was given in the wrong place
 
                 # Hugo server command
                 hugo_folder = 'Hugo'
@@ -415,8 +439,22 @@ if __name__ == "__main__":
                     hugo_executable = 'hugo.exe'
 
                 # Create Hugo server command
-                hugo_command = f'{os.path.join(hugo_folder, hugo_executable)} server -D -E -F --disableLiveReload --bind {host} --baseURL http://{host}/'
+                hugo_command = f'{os.path.join(hugo_folder, hugo_executable)} server -D -E -F --minify --disableLiveReload --bind {host} -p {PORT} --baseURL http://{host}/'
                 log.info(f'hugo_command: {hugo_command}')
+                print(f'''
+     ------------------------------------------------------------------------------------------------------\n
+           To open the Follow Relion Gracefully server, simply launch your web browser and navigate to: 
+           
+                                                   http://{host}:{PORT}/. 
+                                                   
+           If you are accessing the server from a remote workstation, be sure to use the --h (host) IP address. 
+       Additionally, it's important to note that the IP address of your current workstation is: {get_ip_address()}. 
+       
+                       If you are unable to connect to the server using the provided IP and port, 
+                               ensure that the server port is allowed through your firewall.
+                               
+     -------------------------------------------------------------------------------------------------------\n
+                      ''')
 
                 # Download Hugo if not present
                 if not os.path.exists(os.path.join(hugo_folder, hugo_executable)):
@@ -424,6 +462,8 @@ if __name__ == "__main__":
                     log.info(f'Downloading Hugo')
 
                 # Run Hugo server
+                check_kill_process_by_name('hugo') # kill hugo if running
+                
                 hugo_server = start_detached_Hugo_server(
                     hugo_command)  # Start detached Hugo server
                 SERVER_RUNNING = True  # Set SERVER_RUNNING flag to true
@@ -436,6 +476,7 @@ if __name__ == "__main__":
 
             time.sleep(WAIT)  # Wait for WAIT seconds for next iteration
             FIRST_RUN = False  # Set FIRST_RUN flag to false
+            FORCE_PROCESS = False # After first run switch to process only when updated
         
             log.info(f'Total time for all folders: {time.time() - total_time1}')
         
