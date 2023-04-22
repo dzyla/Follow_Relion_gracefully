@@ -166,17 +166,20 @@ usage: follow_relion_gracefully_run.py [-h] --i I [I ...] [--h H] [--n N] [--t T
 
 Follow Relion Gracefully: web-based job GUI
 
-options:
+optional arguments:
   -h, --help       show this help message and exit
   --i I [I ...]    One or more Relion folder paths. Required!
-  --h H            Hostname for HUGO website. For remotly hosted Hugo server (for example another workstation or Github). Use IP adress of the remote machine but make sure the ports are open. For local hosting leave it default (localhost)
+  --h H            Hostname for HUGO website. For remotly hosted Hugo server (for example another workstation or Github). Use IP adress of
+                   the remote machine but make sure the ports are open. For local hosting leave it default (localhost)
   --n N            Number of CPUs for processing. Use less (2-4) if you have less than 16 GB of RAM
   --t T            Wait time between folder checks for changes used for continuous updates.
   --single         Single run, do not do continuous updates. Useful for the first-time usage
-  --new            Start new Follow Relion Gracefully project and remove previous job previews. Removes whole /content/ folder! Use after downloading from Github or when acually want to start a new project
+  --new            Start new Follow Relion Gracefully project and remove previous job previews. Removes whole /content/ folder! Use after
+                   downloading from Github or when acually want to start a new project
   --download_hugo  Download HUGO executable if not present. This is operating system specific
   --server         Automatically start HUGO server
   --debug          Change log level to debug. Helpful for checking if something goes wrong
+  --p P            Port for Hugo server
 ```
 
   
@@ -192,29 +195,45 @@ Use multiple projects by --i /folder1/ /folder2/ /folder3/
 ```bash
 python follow_relion_gracefully_run.py --i /mnt/f/linux/relion40_tutorial_precalculated_results/ /mnt/f/linux/relion40_sta_tutorial_data/ --server --new
 ```
-
 Hugo now refreshes its content according to the changes made in the Relion directories.
-  
-##### Working from remote workstation or cluster:
 
-By using the new Hugo server configuration, it is now possible now to host Hugo server on a remote workstation. Nevertheless, it's important to open the firewall ports used by Hugo (the default being 1313).
+## Accesing Hugo server:doughnut:
+By default, Hugo will be bound to http://localhost:1313/. If you're running Follow Relion Gracefully on your local computer, simply open your preferred browser and enter http://localhost:1313/ in the address bar.
 
-When running on remote workstation use `--h IP_ADDRESS`, eg. `--h 10.0.90.120`
+When executing the Python script remotely, things get a bit more complicated. If the remote workstation is not specified with the `--h` flag, it will still be bound to http://localhost:1313/. In this case, the Hugo server will only be accessible from a web browser on the remote machine. To access the server, open a new terminal on the remote machine and start your favorite web browser with http://localhost:1313/.
 
-```bash
-
-python follow_relion_gracefully_run.py --i /mnt/f/linux/relion40_tutorial_precalculated_results/ /mnt/f/linux/relion40_sta_tutorial_data/ --server --new --h 10.0.90.120
-```
-To set up Hugo server, you can use the IP address of your workstation and make sure the port is open. If that doesn't work, you may want to try port forwarding instead:
-
+Alternatively, create a ssh tunnel that will connect the remote machine port 1313 to your local computer port 1313:
 ```bash
 
 ssh -f  username@workstation -L  1313:localhost:1313  -N
 ```
+This will allow you access the remote Hugo server on your local computer.
 
-And check your https://localhost:1313 for forwarding.
+However, this solution can be slow, and it's often better to bind the Hugo server to the remote workstation by providing the hostname with the `--h` flag. To find the IP address of your workstation, type the following command in the terminal:
+```bash
+ifconfig
+```
 
-##### Hosting own GitHub page:globe_with_meridians:
+That will give the information about the workstation IP:
+```bash
+enp65s0f0: flags=4163<UP,BROADCAST,RUNNING,MULTICAST>  mtu 1500
+        inet 10.0.10.120  netmask 255.255.0.0  broadcast 10.0.255.255
+        ...
+```
+In this example, the IP address is 10.0.10.120. Rerun the script using this IP address:
+```bash
+python follow_relion_gracefully_run.py --i /mnt/f/linux/relion40_tutorial_precalculated_results/ /mnt/f/linux/relion40_sta_tutorial_data/ --server --new --h 10.0.10.120
+```
+This command binds the server to the specified IP address, allowing you to access the results in your local computer's web browser by entering: http://10.0.10.120:1313/
+
+However, there's a catch. If the remote workstation is part of a cluster or has a firewall, the port may not be accessible from outside. You can try opening port 1313, but this requires root access.
+
+An alternative solution is to run the Python script on the remote workstation but within a network-shared directory (such as a Samba share) and mount the directory on your local computer. Then, run the Hugo server on your local computer (./Hugo/hugo server), and you should be able to access the results at http://localhost:1313/.
+
+The `--p` argument can also be helpful, as it allows you to specify the port number on which the server will run. If port 1313 is already in use, you can try another available port number. For example, you could choose a random free port number within a specific range, such as 5000-6000. Make sure to update the port number in the Python script command and when accessing the server through your web browser
+
+  
+## Hosting own GitHub page:globe_with_meridians:
 
   
 
@@ -285,11 +304,15 @@ This should send the newly processed files to Github and build a website. On you
 
 * Can you run Relion *via* static website generator? (probably not)
 * Optimization of speed and RAM usage
+* Selection of jobs inside given project
+
 
   
 
 ## Questions/suggestions?:email:
 
 Dawid Zyla, La Jolla Institute for Immunology
+
 [Twitter](https://twitter.com/DawidZyla)
+
 [dzyla@lji.org](mailto:dzyla@lji.org)
