@@ -15,6 +15,8 @@
 
 * **Non-Profit Open Software License 3.0 (NPOSL-3.0)**
 
+https://user-images.githubusercontent.com/20625527/233797797-c4a93f69-9abd-4636-aab2-958419bcec9f.mp4
+
   
 ### :sparkles: Liked it and contributed to your research? You can cite my work! :sparkles:
 
@@ -25,7 +27,8 @@
 #### Dawid Zyla. (2023). dzyla/Follow_Relion_gracefully: v4 (Version update4). Zenodo. https://doi.org/10.5281/zenodo.7844516
 
   
-  
+
+
 
 ## Description:microscope:
 
@@ -49,6 +52,10 @@ What's more, v4 automatically downloads the relevant Hugo executable and execute
 * Debugger support: if something fails `--debug` will print problems in the log file. Might be useful for identifying problems.
 * Dark mode🌜! No need to strain your eyes while working night shifts!
 * `#OpenSoftwareAcceleratesScience`
+
+
+https://user-images.githubusercontent.com/20625527/233797847-8d1200e1-b592-415b-bedb-2be7776d5aa4.mp4
+
 
 ## Installation:rocket:
 
