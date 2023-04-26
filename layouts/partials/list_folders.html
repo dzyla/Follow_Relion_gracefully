@@ -9,11 +9,14 @@
   {{ $trimmedContent := trim . "\n" }}
   {{ $projects := split $trimmedContent "\n" }}
   {{ $sortedProjects := sort $projects }}
+  {{ $folderCount := len $folders }}
+  {{ $reversedIndexSeq := seq (sub $folderCount 1) -1 0 }}
 
   <ul class="custom-list">
-    {{ range $index, $folder := $folders }}
+    {{ range $index := $reversedIndexSeq }}
+        {{ $folder := index $folders $index }}
         <li><a href="{{ $folder.Name | urlize }}">{{ $folder.Name }}</a>
-          <span style="font-size: 80%;">&#x5b; Project path: {{ index $sortedProjects $index }} &#x5d;</span>
+          <span style="font-size: 80%;">&#x5b; <br> Project path: {{ index $sortedProjects $index }} &#x5d;</span>
         </li>
         <br>
       {{ end }}
