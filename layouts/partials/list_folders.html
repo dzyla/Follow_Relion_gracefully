@@ -16,7 +16,7 @@
     {{ range $index := $reversedIndexSeq }}
         {{ $folder := index $folders $index }}
         <li><a href="{{ $folder.Name | urlize }}">{{ $folder.Name }}</a>
-          <span style="font-size: 80%;">&#x5b; <br> Project path: {{ index $sortedProjects $index }} &#x5d;</span>
+          <span style="font-size: 80%;"><br>&#x5b; Project path: {{ index $sortedProjects $index }} &#x5d;</span>
         </li>
         <br>
       {{ end }}
