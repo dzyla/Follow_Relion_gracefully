@@ -5,8 +5,6 @@
 * **Data sourced from [Relion5 tutorial](https://relion.readthedocs.io/en/latest/SPA_tutorial/index.html) and [Relion4 STA](https://relion.readthedocs.io/en/release-4.0/STA_tutorial/index.html)**
 * **Licensed under Non-Profit Open Software License 3.0 (NPOSL-3.0)**
   
-https://user-images.githubusercontent.com/20625527/233797797-c4a93f69-9abd-4636-aab2-958419bcec9f.mp4
-
   
 #### :sparkles: Found this helpful in your research? Cite my work! :sparkles:
 
@@ -52,7 +50,10 @@ Version 4 introduced support for multiple projects and job visualization through
 
  `* not acually running in the browser but allowing to start the job that runs on Linux workstation` 
 
-https://user-images.githubusercontent.com/20625527/233797847-8d1200e1-b592-415b-bedb-2be7776d5aa4.mp4
+![Screenshot 2024-01-06 153052](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/c5586adf-bd2b-4854-9955-ecdec29c6390)
+![Screenshot 2024-01-06 181031](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/cddec2e0-5adc-4233-9da4-cf1c3a9ed137)
+![Screenshot 2024-01-05 213100](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/04202d8e-098a-4076-931b-2ade8494ced8)
+![Screenshot 2024-01-05 105416](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/edb22c43-727d-4dc6-aae3-ff3ac2255916)
 
 
 ## Installation :rocket:
