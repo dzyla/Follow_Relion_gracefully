@@ -5,6 +5,13 @@
 * **Data sourced from [Relion5 tutorial](https://relion.readthedocs.io/en/latest/SPA_tutorial/index.html) and [Relion4 STA](https://relion.readthedocs.io/en/release-4.0/STA_tutorial/index.html)**
 * **Licensed under Non-Profit Open Software License 3.0 (NPOSL-3.0)**
   
+
+
+
+https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/5b14ca38-b318-4b69-ac72-749dcfa12559
+
+
+
   
 #### :sparkles: Found this helpful in your research? Cite my work! :sparkles:
 
@@ -50,10 +57,17 @@ Version 4 introduced support for multiple projects and job visualization through
 
  `* not acually running in the browser but allowing to start the job that runs on Linux workstation` 
 
-![Screenshot 2024-01-06 153052](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/c5586adf-bd2b-4854-9955-ecdec29c6390)
-![Screenshot 2024-01-06 181031](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/cddec2e0-5adc-4233-9da4-cf1c3a9ed137)
+
+https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/29087797-7cc3-4165-a1dd-d985b5376939
+
+
 ![Screenshot 2024-01-05 213100](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/04202d8e-098a-4076-931b-2ade8494ced8)
 ![Screenshot 2024-01-05 105416](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/edb22c43-727d-4dc6-aae3-ff3ac2255916)
+
+
+https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/f1f130a0-0215-480f-87b9-1a4e2eae96a5
+
+
 
 
 ## Installation :rocket:
@@ -176,6 +190,10 @@ The real-time data calculation in the new implementation makes pre-calculated se
 * Mac support is untested, but it's assumed to work similarly to Linux. Please report any issues!
 * Not all Tomo jobs are currently supported, but future updates are planned.
 * Please note that this code was developed by a Python enthusiast, not a professional developer. It has been tested under standard scenarios to ensure reliability. However, as the author, I cannot be held responsible for any issues or damages that may arise from its use. Users are encouraged to review and test the code thoroughly before implementation in their projects.
+
+![Screenshot 2024-01-06 180926](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/e8c2ab0f-a992-40ba-be6c-3e00029730b8)
+![Screenshot 2024-01-06 181706](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/9d24fce5-908d-4648-9375-b424b336c58e)
+
 
 ## To-do :memo:
 
