@@ -342,14 +342,20 @@ def display_job_info(selected_job, FOLDER, pipeline_processes, pipeline_star):
 
     st.divider()
 
-    note_path = os.path.join(job_path, "note.txt")
-
-    note = get_note(note_path)
+    note = get_note(os.path.join(job_path, "note.txt"))
     with st.expander("Running parameters:"):
         st.code(note)
+        
+    runlog = get_note(os.path.join(job_path, "run.out"))
+    with st.expander("Run log tail:"):
+        st.text(get_last_lines(runlog, 20))
 
 def extract_with_comprehension(data):
     return np.array([d['pointIndex'] for d in data])
+
+def get_last_lines(text, number_of_lines=20):
+    lines = text.splitlines()  # Split the text into lines
+    return '\n'.join(lines[-number_of_lines:])
 
 def interactive_scatter_plot(star_file_path, max_rows=None, own=False, selected_block='', own_name=''):
     if not own:
@@ -495,16 +501,28 @@ def interactive_scatter_plot(star_file_path, max_rows=None, own=False, selected_
         
         
         # Save the modified STAR file to a temporary file
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.star') as tmp_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.star', mode='w+', newline='\n') as tmp_file:
             modified_star.write_file(tmp_file.name)
+            tmp_file.seek(0)  # Go back to the beginning of the file
+            file_content = tmp_file.read()
 
-        # Read the file in binary mode
-        with open(tmp_file.name, 'rb') as file:
+        # Check if the operating system is Windows
+        if os.name == 'nt':
+            # Replace CRLF with LF
+            file_content = file_content.replace('\r\n', '\n')
+
+        # Write the content to a new temporary file with LF endings
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.star', mode='wb') as lf_tmp_file:
+            lf_tmp_file.write(file_content.encode())
+            lf_file_path = lf_tmp_file.name
+
+        # Read the LF formatted file in binary mode
+        with open(lf_file_path, 'rb') as file:
             binary_star_data = file.read()
 
         # Provide a download button in Streamlit
         st.download_button(
-            label=f"**Download selected data as STAR {final_star_name}**",
+            label=f"Download selected data as STAR **{final_star_name}**",
             data=binary_star_data,
             file_name=final_star_name,
             mime='application/octet-stream'  # MIME type for binary file
