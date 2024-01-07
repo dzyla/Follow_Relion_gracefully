@@ -189,6 +189,7 @@ The real-time data calculation in the new implementation makes pre-calculated se
 * Import job previews and ice thickness calculations in Relion Live may be slow.
 * Mac support is untested, but it's assumed to work similarly to Linux. Please report any issues!
 * Not all Tomo jobs are currently supported, but future updates are planned.
+* But I liked Hugo-based implementation, you might think. No worries; after cloning the GitHub repo, run git checkout v4.
 * Please note that this code was developed by a Python enthusiast, not a professional developer. It has been tested under standard scenarios to ensure reliability. However, as the author, I cannot be held responsible for any issues or damages that may arise from its use. Users are encouraged to review and test the code thoroughly before implementation in their projects.
 
 ![Screenshot 2024-01-06 180926](https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/e8c2ab0f-a992-40ba-be6c-3e00029730b8)
@@ -205,7 +206,7 @@ The real-time data calculation in the new implementation makes pre-calculated se
 
 * Job flow chart overview. Who is father of whom and which jobs are realted. :white_check_mark:
 
-* Can you run Relion *via* static website generator? (~~probably not~~) :white_check_mark:
+* Can you run Relion *via* ~~static~~ website ~~generator~~? (~~probably not~~) :white_check_mark:
 * Optimization of speed and RAM usage :grey_question:
 * Selection of jobs inside given project :grey_question:
 * Add job templates for running Relion via browser (basically copying Relion GUI)
