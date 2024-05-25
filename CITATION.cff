@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+- family-names: "Zyla"
+  given-names: "Dawid"
+  orcid: "https://orcid.org/0000-0001-8471-469X"
+title: "Follow_Relion_gracefully"
+version: v5
+doi: 10.5281/zenodo.10465899 
+date-released: 2024-01-06
+url: "https://github.com/dzyla/Follow_Relion_gracefully"

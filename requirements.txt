@@ -1,0 +1,14 @@
+numpy
+pandas
+mrcfile
+scikit-image
+scipy
+matplotlib
+seaborn
+pillow
+plotly
+streamlit
+pyvis
+gemmi
+stqdm
+streamlit_plotly_events
