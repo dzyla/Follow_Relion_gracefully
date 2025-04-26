@@ -1,0 +1,17 @@
+
+
+<header>
+    <h1>
+      Job: &nbsp;
+      {{- .Params.jobname | markdownify -}}
+    </h1>
+
+    {{ partial "post_meta.html" . }}
+
+    <a href="javascript:window.history.back();"> <span class="arrow arrow-left"></span>Back</a>
+
+    <hr>
+</header>
+<article>
+    {{ .Content }}
+</article>
