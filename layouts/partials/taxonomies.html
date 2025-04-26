@@ -1,5 +1,0 @@
-<ul id="all-categories">
-    {{ range $name, $taxonomy := .Site.Taxonomies.jobtype }}
-      <a href="{{ "jobtype/" | relLangURL }}{{ $name | urlize }}" class="jobtype-link"><span class="jobtype-name">[{{ humanize $name }}]</span></a>
-    {{ end }}
-  </ul>

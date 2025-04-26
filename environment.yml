@@ -1,0 +1,22 @@
+name: FollowRelion
+channels:
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+    - numpy
+    - pandas
+    - mrcfile
+    - scikit-image
+    - scipy
+    - matplotlib
+    - seaborn
+    - pillow
+    - plotly
+    - streamlit
+    - pyvis
+    - gemmi
+    - stqdm
+    - streamlit_plotly_events
