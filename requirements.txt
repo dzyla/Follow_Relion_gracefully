@@ -1,4 +1,4 @@
-numpy
+numpy<2.0
 pandas
 mrcfile
 scikit-image
@@ -11,4 +11,6 @@ streamlit
 pyvis
 gemmi
 stqdm
-streamlit_plotly_events
+PyMCubes
+altair
+morphosamplers
