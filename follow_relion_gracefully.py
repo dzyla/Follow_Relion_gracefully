@@ -1,4 +1,37 @@
-# -*- coding: utf-8 -*-
+# 
+#  ____        ___    ___                           ____            ___                            ____                                    ___          ___    ___                
+# /\  __\     /\_ \  /\_ \                         /\  _`\         /\_ \    __                    /\  _`\                                /'___\        /\_ \  /\_ \               
+# \ \ \_    __\//\ \ \//\ \     ___   __  __  __   \ \ \L\ \     __\//\ \  /\_\    ___     ___    \ \ \L\_\  _ __    __      ___     __ /\ \__/  __  __\//\ \ \//\ \    __  __    
+#  \ \  _\/ __`\\ \ \  \ \ \   / __`\/\ \/\ \/\ \   \ \ ,  /   /'__`\\ \ \ \/\ \  / __`\ /' _ `\   \ \ \L_L /\`'__\/'__`\   /'___\ /'__`\ \ ,__\/\ \/\ \ \ \ \  \ \ \  /\ \/\ \   
+#   \ \ \/\ \L\ \\_\ \_ \_\ \_/\ \L\ \ \ \_/ \_/ \   \ \ \\ \ /\  __/ \_\ \_\ \ \/\ \L\ \/\ \/\ \   \ \ \/, \ \ \//\ \L\.\_/\ \__//\  __/\ \ \_/\ \ \_\ \ \_\ \_ \_\ \_\ \ \_\ \  
+#    \ \_\ \____//\____\/\____\ \____/\ \___x___/'    \ \_\ \_\ \____\/\____\\ \_\ \____/\ \_\ \_\   \ \____/\ \_\\ \__/.\_\ \____\ \____\\ \_\  \ \____/ /\____\/\____\\/`____ \ 
+#     \/_/\/___/ \/____/\/____/\/___/  \/__//__/       \/_/\/ /\/____/\/____/ \/_/\/___/  \/_/\/_/    \/___/  \/_/ \/__/\/_/\/____/\/____/ \/_/   \/___/  \/____/\/____/ `/___/> \
+#                                                                                                                                                                           \\___/
+# Follow Relion Gracefully (v6)
+# Developed by Dawid Zyla, La Jolla Institute for Immunology 
+# Non-Profit Open Software License 3.0 
+
+# update v6 (2025-04-26)
+
+# ## Main Changes
+# -> Better integration with Streamlit platform (https://streamlit.io/)
+# -> Added support for all (most) Relion jobs covering all cryo-ET and SPA jobs (except for DynaMight)
+# -> Temporary removed live and in-browser job execution
+# -> General QOL fixes and improvements
+# 
+# ## New Features
+# -> Support for all cryo-ET jobs with job previews
+# -> Optimized visualizations for most of the Relion jobs
+# -> Divided the code into smaller modules for better readability and maintainability
+# -> Overhauled visualization of Local Resolution, picking, micrograph previews, and other jobs
+# -> Increased performance and reduced loading times (in most cases)
+# -> Added better logging and error handling
+#
+#
+# ## To Do
+# -> Add own DynaMight job preview (currently not supported)
+# -> Add support for cryoSPARC cs files and export to Relion (most likely via pyem)
+# -> Further speed optimization and code cleanup
 
 # Standard Library Imports
 import argparse
