@@ -238,6 +238,7 @@ This allows remote dashboard access on your local computer: http://localhost:850
 
 * Add support for `DynaMight`
 * Speed up processing for some jobs
+* Add cryoSPARC metadata support and export to Relion
 
 
   
