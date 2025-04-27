@@ -4,12 +4,30 @@
 
 * **Data sourced from [Relion5 tutorial](https://relion.readthedocs.io/en/latest/SPA_tutorial/index.html), [Relion4 STA](https://relion.readthedocs.io/en/release-4.0/STA_tutorial/index.html), and [Relion5 STA](https://zenodo.org/records/11068319)**
 * **Licensed under Non-Profit Open Software License 3.0 (NPOSL-3.0)**
-  
 
+**Micrograph viewer**
+![Screenshot 2025-04-26 132051](https://github.com/user-attachments/assets/f0bef20d-cdd8-4862-9e79-6de9cef4ea56)
 
+**Picking statistics preview**
+![Screenshot 2025-04-26 132130](https://github.com/user-attachments/assets/62a328ac-8a12-4e0b-84ea-681a33425d2f)
 
-https://github.com/dzyla/Follow_Relion_gracefully/assets/20625527/5b14ca38-b318-4b69-ac72-749dcfa12559
+**Mask with original volume preview**
+![Screenshot 2025-04-26 132427](https://github.com/user-attachments/assets/d283829e-eb4c-4d42-a5a0-9f91c9c1b6c6)
 
+**Local resolution directly in the browser**
+![Screenshot 2025-04-26 132533](https://github.com/user-attachments/assets/b34df0fd-2083-4ed0-8f8b-f7a3605bae0a)
+
+**Tomography specific job preview:**
+![Screenshot 2025-04-26 131941](https://github.com/user-attachments/assets/36e69169-1753-496e-b914-a3c6efb9c45e)
+
+**Tomogram viewer**
+![Screenshot 2025-04-26 131931](https://github.com/user-attachments/assets/ad6234ae-7e20-40e3-a2be-d7eaaadd3a8c)
+
+**3D picking preview with annotations**
+![Screenshot 2025-04-26 131907](https://github.com/user-attachments/assets/4a0a9800-d2b4-43ec-8d62-8035c5a2ef59)
+
+**3D picking with particles**
+![Screenshot 2025-04-26 131849](https://github.com/user-attachments/assets/8b10cd27-ef06-4af2-9809-ae332f9338d7)
 
 
   
@@ -43,6 +61,7 @@ Version 4 introduced support for multiple projects and job visualization through
 * Ability to download volumes directly from the dashboard
 * Job flow chart overview, showing relationships between jobs
 * Improved speed (but increased RAM usage)
+* Included file browser for easier project switching
 * Plenty of QOL improvements
 * `#OpenSoftwareAcceleratesScience`
 
