@@ -5,18 +5,20 @@ channels:
 dependencies:
   - python=3.12
   - pip
+  - numpy<2.0
+  - pandas
+  - mrcfile
+  - scikit-image
+  - scipy
+  - matplotlib
+  - seaborn
+  - pillow
+  - plotly
+  - streamlit
+  - pyvis
+  - gemmi
+  - altair
   - pip:
-    - numpy
-    - pandas
-    - mrcfile
-    - scikit-image
-    - scipy
-    - matplotlib
-    - seaborn
-    - pillow
-    - plotly
-    - streamlit
-    - pyvis
-    - gemmi
-    - stqdm
-    - streamlit_plotly_events
+      - stqdm
+      - PyMCubes
+      - morphosamplers
