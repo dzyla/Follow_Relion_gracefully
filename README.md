@@ -72,6 +72,10 @@ Version 4 introduced support for multiple projects and job visualization through
 
 Minor changes from `v5`, with a few new libraries added. Tested on `Windows 10/11`, `WSL2`, and `Ubuntu 22.04`.
 
+:heavy_exclamation_mark:
+###  If you are using a previously created environment, I strongly recommend creating a new environment with freshly installed dependencies, as some new libraries were added. Follow the steps below to set up a new environment. 
+:heavy_exclamation_mark:
+
 ### Install Dependencies :snake:
 
 Install dependencies in a conda environment, as Python 3.12 is required and virtual environments are no longer supported (though they might still work).
