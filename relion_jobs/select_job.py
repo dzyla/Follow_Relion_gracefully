@@ -994,6 +994,7 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
                     logger.debug(f'particles_selected: {particles_selected}')
                     
                     file_tomo = os.path.join(FOLDER, unique_mics[file_idx])
+                    logger.debug(f"file_tomo: {file_tomo}")
                     
                     try:
                         coords_sel = particles_selected[
@@ -1040,7 +1041,7 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
                             st.write("No coordinates found for this tomogram.")
                             return
                     
-
+                    col1.markdown(f"**Tomogram:** `{unique_mics[file_idx]}`")
                     fig_tomo = plot_tomogram_picks(file_tomo, file_idx, coords_sel, coords_rej)
                     if fig_tomo is not None:
                         col2.plotly_chart(fig_tomo)
