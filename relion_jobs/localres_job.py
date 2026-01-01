@@ -236,7 +236,7 @@ def plot_locres(nodes: List[str], folder: str, job: str) -> None:
             with col4:
                 colours = st.selectbox(
                     "Colour scale",
-                    ("Turbo", "Viridis", "Cividis", "Plasma", "Inferno", "Haline", "RdYlBu", "RdBu", "Jet", "Rainbow"),
+                    ("Turbo", "Viridis", "Cividis", "Plasma", "Inferno", "Haline", "RdYlBu_r", "RdBu_r", "Jet", "Rainbow"),
                     index=0,
                     key=f"{job}_cmap",
                 )

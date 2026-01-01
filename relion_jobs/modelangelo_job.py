@@ -5,10 +5,11 @@ import re
 import traceback
 import logging
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 import io
 from concurrent.futures import ThreadPoolExecutor
 
+from scipy.ndimage import map_coordinates
 import numpy as np
 import pandas as pd
 import streamlit as st
@@ -65,20 +66,23 @@ def calculate_residue_mean_density(
     atoms_df: pd.DataFrame,
     volume_data: np.ndarray,
     voxel_size: float,
-    mode: str = "CA",  # Use "CA" for C-alpha only or "all" for all atoms per residue.
+    mode: str = "CA",
     radius: float = 1.0,
-    scaled: bool = False
+    scaled: bool = False,
+    origin_angstrom: Optional[np.ndarray] = None
 ) -> Dict[str, pd.Series]:
     """
-    Calculates the average map density for each residue per chain.
+    Calculates the average map density for each residue per chain using trilinear interpolation
+    at atom coordinates.
 
     Parameters:
       atoms_df: DataFrame with columns "x", "y", "z", "chain", "residue", "seq_id".
       volume_data: 3D numpy array representing the cryo-EM map in pixel coordinates.
-      voxel_size: The voxel size (in angstrom per pixel). If atoms_df is not scaled, coordinates are in angstroms.
-      mode: "CA" to use only C-alpha atoms or "all" to use all atoms for the residue.
-      radius: Radius (in pixels) around the residue centroid to sample the map.
+      voxel_size: The voxel size (in angstrom per pixel).
+      mode: "CA" to use only C-alpha atoms (if input has others) or "all".
+      radius: Unused in this interpolation method (kept for API compatibility).
       scaled: Boolean flag indicating whether the coordinates in atoms_df are already scaled to pixel units.
+      origin_angstrom: The origin of the map in Angstroms (x, y, z). Defaults to (0,0,0) if None.
 
     Returns:
       A dictionary mapping chain identifiers to a Pandas Series. In each series the index is the residue identifier (seq_id)
@@ -87,50 +91,48 @@ def calculate_residue_mean_density(
     # Work on a copy of the atoms DataFrame
     df = atoms_df.copy()
 
-    # If the coordinates are not already in pixel space, scale them using the voxel_size.
+    ox, oy, oz = 0.0, 0.0, 0.0
+    if origin_angstrom is not None:
+         ox, oy, oz = origin_angstrom
+
+    # If the coordinates are not already in pixel space, scale them.
+    # We assume 'x', 'y', 'z' cols in atoms_df correspond to physical space (Angstroms) if not scaled.
     if not scaled:
-        df["x"] = df["x"] / voxel_size
-        df["y"] = df["y"] / voxel_size
-        df["z"] = df["z"] / voxel_size
+        df["x"] = (df["x"] - ox) / voxel_size
+        df["y"] = (df["y"] - oy) / voxel_size
+        df["z"] = (df["z"] - oz) / voxel_size
+    
+    # If scaled=True, we assume the caller has already handled origin subtraction and division by voxel size.
+    # (Existing callers might need updates if they didn't handle origin)
 
-    # Group the DataFrame by chain and residue (using the 'seq_id' as the residue identifier)
+    # Group the DataFrame by chain and residue
     grouped = df.groupby(["chain", "seq_id"])
-
-    # Precompute relative voxel offsets within a sphere of given radius.
-    offsets = []
-    r_int = int(np.ceil(radius))
-    for dx in range(-r_int, r_int+1):
-        for dy in range(-r_int, r_int+1):
-            for dz in range(-r_int, r_int+1):
-                if np.sqrt(dx**2 + dy**2 + dz**2) <= radius:
-                    offsets.append((dx, dy, dz))
-    offsets = np.array(offsets)
-
-    shape = volume_data.shape  # Expect shape (nx, ny, nz)
+    
+    shape = volume_data.shape # (Z, Y, X) typically for mrcfile data
 
     def compute_density_for_group(name_group: Tuple[Tuple[Any, Any], pd.DataFrame]):
         """
-        For one residue group, compute the centroid of the coordinates and then
-        average the map density values in the volume within the spherical neighborhood.
+        For one residue group, interpolate map density at atom positions.
         """
         name, group = name_group
-        # Compute the centroid of the coordinates for this residue.
-        # Use mean instead of sum for centroid
-        centroid = group[["x", "y", "z"]].mean().values
-        # Round the centroid to get indices for the volume.
-        idx = np.rint(centroid).astype(int)
+        
+        # Coordinates for interpolation. 
+        # Standard MRC data in numpy is usually (Z, Y, X) order.
+        # We map DataFrame columns x -> X, y -> Y, z -> Z.
+        # So we request interpolation at indices [z, y, x].
+        
+        zs = group["z"].values
+        ys = group["y"].values
+        xs = group["x"].values
+        
+        # map_coordinates input coordinates must be shape (ndim, n_points)
+        coords = np.stack([zs, ys, xs])
+        
+        # Trilinear interpolation (order=1)
+        # mode='nearest' handles atoms slightly outside the box by clamping to edge
+        vals = map_coordinates(volume_data, coords, order=1, mode='nearest')
 
-        vals = []
-        for off in offsets:
-            pt = idx + off
-            if (
-                pt[0] >= 0 and pt[0] < shape[0] and
-                pt[1] >= 0 and pt[1] < shape[1] and
-                pt[2] >= 0 and pt[2] < shape[2]
-            ):
-                vals.append(volume_data[pt[0], pt[1], pt[2]])
-
-        if vals:
+        if vals.size > 0:
             return name, np.mean(vals)
         else:
             return name, np.nan
@@ -160,7 +162,8 @@ def plot_residue_density_ui(
     voxel_size: float,
     mode: str = "CA",
     radius: float = 1.0,
-    scaled: bool = False
+    scaled: bool = False,
+    origin_angstrom: Optional[np.ndarray] = None
 ) -> None:
     """
     Calculates the mean map density per residue and displays a Streamlit user interface.
@@ -174,7 +177,7 @@ def plot_residue_density_ui(
     if calc_density:
         with st.spinner("Calculating residue densities..."):
             density_data = calculate_residue_mean_density(
-                atoms_df, volume_data, voxel_size, mode=mode, radius=radius, scaled=scaled
+                atoms_df, volume_data, voxel_size, mode=mode, radius=radius, scaled=scaled, origin_angstrom=origin_angstrom
             )
 
         if not density_data:
@@ -212,7 +215,7 @@ def plot_residue_density_ui(
             col2.plotly_chart(fig, use_container_width=True)
 
             # Show stats
-            with st.expander("Density Stats"):
+            if st.checkbox("Show Density Stats", key="show_dens_stats"):
                 st.write(series.describe())
 
 
@@ -764,10 +767,15 @@ def plot_modelangelo(folder: str, node_files: List[str]) -> None:
             logger.info(f"Applying scaling to atom coordinates with voxel size: {voxel_size:.3f} Å/px")
             with st.spinner("Scaling coordinates..."):
                 ca_atoms_pixels = ca_atoms_angstrom.copy()
-                ca_atoms_pixels["x"] /= voxel_size
-                ca_atoms_pixels["y"] /= voxel_size
-                ca_atoms_pixels["z"] /= voxel_size
-                # --> Let's NOT subtract origin for now, assume plot_volume and atom plot work in same pixel frame 0..N-1
+                
+                ox, oy, oz = 0.0, 0.0, 0.0
+                if origin_angstrom is not None:
+                     ox, oy, oz = origin_angstrom
+
+                ca_atoms_pixels["x"] = (ca_atoms_pixels["x"] - ox) / voxel_size
+                ca_atoms_pixels["y"] = (ca_atoms_pixels["y"] - oy) / voxel_size
+                ca_atoms_pixels["z"] = (ca_atoms_pixels["z"] - oz) / voxel_size
+
                 updated_cache = st.session_state.get(job_data_cache_key, {})
                 updated_cache["atoms_pixels"] = ca_atoms_pixels
                 updated_cache["scaling_info"] = {"applied": True, "voxel_size": voxel_size}
@@ -782,7 +790,8 @@ def plot_modelangelo(folder: str, node_files: List[str]) -> None:
 
     if volume_enabled and volume_data is not None and ca_atoms_pixels is not None:
         with st.expander("Residue Density Analysis", expanded=False):
-            plot_residue_density_ui(ca_atoms_pixels, volume_data, voxel_size, mode="CA", radius=1.5, scaled=True)
+            # Use Angstrom coordinates for density calculation to ensure correct origin handling
+            plot_residue_density_ui(ca_atoms_angstrom, volume_data, voxel_size, mode="CA", radius=1.5, scaled=False, origin_angstrom=origin_angstrom)
 
     # --- Plotting ---
     st.markdown("---")

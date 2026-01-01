@@ -1145,6 +1145,21 @@ def interactive_scatter_plot(
         if plot_type != "2D Scatter":
             coord_system = "Cartesian"
 
+    # Sampling Controls
+    max_points_val = max_rows_default
+    do_sample = False
+    if allow_sampling:
+        with cfg_cols[2]:
+            max_points_val = st.slider(
+                "Max points (Sample size)", 
+                min_value=1000, 
+                max_value=500000, 
+                value=max_rows_default, 
+                step=1000,
+                key=f"{title_prefix}_max_points"
+            )
+            do_sample = st.checkbox("Enable Sampling", value=True, key=f"{title_prefix}_sample")
+
     if len(columns_list) == 1:
         st.error("No columns found in block.")
         return
@@ -1201,18 +1216,21 @@ def interactive_scatter_plot(
     )
 
     # 4. DATA PREP (Datashader vs Plotly decision)
-    use_datashader = n_rows > 50000 and plot_type == "2D Scatter" and coord_system == "Cartesian"
+    # Determine effectively plotted rows
+    if do_sample and n_rows > max_points_val:
+        effective_rows = max_points_val
+    else:
+        effective_rows = n_rows
+
+    use_datashader = effective_rows > 50000 and plot_type == "2D Scatter" and coord_system == "Cartesian"
 
     if use_datashader:
-        st.info("Large dataset detected (>50k rows). Using Datashader for high-performance rendering.")
+        st.info(f"Large dataset ({effective_rows:,} points). Using Datashader for high-performance rendering.")
 
     # Select columns to fetch
     cols_to_fetch = {x_sel, y_sel}
     if z_sel: cols_to_fetch.add(z_sel)
     if colour_sel != "None": cols_to_fetch.add(colour_sel)
-
-    # Add index if needed for selection mapping?
-    # For now, let's keep it simple. Datashader generates an image.
 
     # 5. FETCH & CAST
     try:
@@ -1221,17 +1239,15 @@ def interactive_scatter_plot(
             pl.col(c).cast(pl.Float64, strict=False) for c in cols_to_fetch if c
         ])
 
-        # For datashader we can stay in polars/arrow/pandas, but holoviews supports pandas best or dask.
-        # Let's collect to Pandas for now as intermediate step, it's efficient enough for 1M rows in RAM.
-        # But we wanted to avoid full load if possible. Datashader can work on Dask.
-        # Here we will collect to Pandas as it is compatible with both Plotly and Holoviews/Datashader.
-        # (Polars -> Pandas conversion is zero-copy for arrow-backed types mostly)
-
-        if allow_sampling and not use_datashader and n_rows > max_rows_default:
-             st.info(f"Plotting random sample of {max_rows_default} points.")
-             df = lf_cast.select(list(cols_to_fetch)).collect().sample(n=max_rows_default, seed=42).to_pandas()
+        if do_sample and n_rows > max_points_val:
+             # Sample logic
+             # If using datashader, we might ideally want full data, but the slider controls "Max points" explicitly.
+             # If user sets slider to 200k, we sample to 200k. If > 50k, Datashader used.
+             # If user sets slider to 40k, we sample to 40k. Datashader NOT used.
+             st.caption(f"Sampling {max_points_val:,} points from {n_rows:,} total.")
+             df = lf_cast.select(list(cols_to_fetch)).collect().sample(n=max_points_val, seed=42).to_pandas()
         else:
-             # For datashader, we load full data (it handles millions easily)
+             # Full data load
              df = lf_cast.select(list(cols_to_fetch)).collect().to_pandas()
 
     except Exception as e:
@@ -1243,33 +1259,59 @@ def interactive_scatter_plot(
     if use_datashader:
         # Use Holoviews + Datashader
         try:
+            from bokeh.models import WheelZoomTool, PanTool, ResetTool, SaveTool
+            try:
+                from streamlit_bokeh import streamlit_bokeh
+            except ImportError:
+                streamlit_bokeh = None
+
+            # 1. Create Points & Datashade
             points = hv.Points(df, kdims=[x_sel, y_sel])
-
-            # Datashader cmap
             cmap = COLOR_SCALES[colour_scheme]
-
+            
+            # Use dynamic=False for standalone HTML compatibility
             if colour_sel != "None":
-                 # Use mean aggregator for value if numeric
-                 rasterized = datashade(points, aggregator=ds.mean(colour_sel), cmap=cmap)
+                 rasterized = datashade(points, aggregator=ds.mean(colour_sel), cmap=cmap, dynamic=False)
             else:
-                 rasterized = datashade(points, cmap=cmap)
+                 rasterized = datashade(points, cmap=cmap, dynamic=False)
+            
+            # Dynspread to ensure visibility
+            spread = dynspread(rasterized, threshold=0.5, max_px=4)
 
-            # Make it interactive with spread
-            rasterized = dynspread(rasterized, threshold=0.5, max_px=4)
+            # Options: Clear tools to avoid conflicts
+            opts_kwargs = dict(width=800, height=600, title=f"{title_prefix}: {selected_block} (Datashader)", tools=[])
+            spread = spread.opts(**opts_kwargs)
 
-            rasterized = rasterized.opts(width=800, height=600, title=f"{title_prefix}: {selected_block} (Datashader)")
+            # Render to Bokeh Figure
+            bokeh_plot = hv.render(spread, backend='bokeh')
 
-            st.bokeh_chart(hv.render(rasterized, backend='bokeh'), use_container_width=True)
+            # --- Tools & Interaction ---
+            # Basic navigation tools
+            bokeh_plot.add_tools(PanTool(), WheelZoomTool(), ResetTool(), SaveTool())
+            bokeh_plot.toolbar.active_scroll = "auto"
 
-            st.warning("High performance mode enabled. Lasso selection is disabled.")
+            # Render
+            if streamlit_bokeh:
+                streamlit_bokeh(bokeh_plot)
+            else:
+                st.bokeh_chart(bokeh_plot, use_container_width=True)
+
+            st.info("High performance mode enabled. Selection is disabled for large datasets.")
             if st.button("Switch to Standard Interactive Plot (Slower, allows selection)"):
-                # Force reload/re-render without datashader logic implies strictly needing a rerun with a flag,
-                # but function is stateless. We can hint user to sample down.
-                st.info("To select points, please reduce 'Max points' using the slider above to under 50,000, or use the sampling option.")
+                 st.info("To select points, please reduce 'Max points' using the slider above to under 50,000, or use the sampling option.")
 
         except Exception as e:
             st.error(f"Datashader plotting failed: {e}")
             report_error(e)
+            # Last resort fallback
+            try:
+                 from streamlit_bokeh import streamlit_bokeh
+                 streamlit_bokeh(hv.render(spread, backend='bokeh'))
+            except:
+                 try:
+                    st.bokeh_chart(hv.render(spread, backend='bokeh'), use_container_width=True)
+                 except:
+                    pass
 
     else:
         # FULL RESTORED PLOTLY IMPLEMENTATION
