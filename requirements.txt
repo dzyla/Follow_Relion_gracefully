@@ -20,5 +20,3 @@ datashader
 holoviews
 bokeh
 opencv-python-headless
-streamlit-bokeh
-streamlit-bokeh-events

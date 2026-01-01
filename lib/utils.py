@@ -1145,21 +1145,6 @@ def interactive_scatter_plot(
         if plot_type != "2D Scatter":
             coord_system = "Cartesian"
 
-    # Sampling Controls
-    max_points_val = max_rows_default
-    do_sample = False
-    if allow_sampling:
-        with cfg_cols[2]:
-            max_points_val = st.slider(
-                "Max points (Sample size)", 
-                min_value=1000, 
-                max_value=500000, 
-                value=max_rows_default, 
-                step=1000,
-                key=f"{title_prefix}_max_points"
-            )
-            do_sample = st.checkbox("Enable Sampling", value=True, key=f"{title_prefix}_sample")
-
     if len(columns_list) == 1:
         st.error("No columns found in block.")
         return
@@ -1216,21 +1201,18 @@ def interactive_scatter_plot(
     )
 
     # 4. DATA PREP (Datashader vs Plotly decision)
-    # Determine effectively plotted rows
-    if do_sample and n_rows > max_points_val:
-        effective_rows = max_points_val
-    else:
-        effective_rows = n_rows
-
-    use_datashader = effective_rows > 50000 and plot_type == "2D Scatter" and coord_system == "Cartesian"
+    use_datashader = n_rows > 50000 and plot_type == "2D Scatter" and coord_system == "Cartesian"
 
     if use_datashader:
-        st.info(f"Large dataset ({effective_rows:,} points). Using Datashader for high-performance rendering.")
+        st.info("Large dataset detected (>50k rows). Using Datashader for high-performance rendering.")
 
     # Select columns to fetch
     cols_to_fetch = {x_sel, y_sel}
     if z_sel: cols_to_fetch.add(z_sel)
     if colour_sel != "None": cols_to_fetch.add(colour_sel)
+
+    # Add index if needed for selection mapping?
+    # For now, let's keep it simple. Datashader generates an image.
 
     # 5. FETCH & CAST
     try:
@@ -1239,15 +1221,17 @@ def interactive_scatter_plot(
             pl.col(c).cast(pl.Float64, strict=False) for c in cols_to_fetch if c
         ])
 
-        if do_sample and n_rows > max_points_val:
-             # Sample logic
-             # If using datashader, we might ideally want full data, but the slider controls "Max points" explicitly.
-             # If user sets slider to 200k, we sample to 200k. If > 50k, Datashader used.
-             # If user sets slider to 40k, we sample to 40k. Datashader NOT used.
-             st.caption(f"Sampling {max_points_val:,} points from {n_rows:,} total.")
-             df = lf_cast.select(list(cols_to_fetch)).collect().sample(n=max_points_val, seed=42).to_pandas()
+        # For datashader we can stay in polars/arrow/pandas, but holoviews supports pandas best or dask.
+        # Let's collect to Pandas for now as intermediate step, it's efficient enough for 1M rows in RAM.
+        # But we wanted to avoid full load if possible. Datashader can work on Dask.
+        # Here we will collect to Pandas as it is compatible with both Plotly and Holoviews/Datashader.
+        # (Polars -> Pandas conversion is zero-copy for arrow-backed types mostly)
+
+        if allow_sampling and not use_datashader and n_rows > max_rows_default:
+             st.info(f"Plotting random sample of {max_rows_default} points.")
+             df = lf_cast.select(list(cols_to_fetch)).collect().sample(n=max_rows_default, seed=42).to_pandas()
         else:
-             # Full data load
+             # For datashader, we load full data (it handles millions easily)
              df = lf_cast.select(list(cols_to_fetch)).collect().to_pandas()
 
     except Exception as e:
@@ -1259,100 +1243,132 @@ def interactive_scatter_plot(
     if use_datashader:
         # Use Holoviews + Datashader
         try:
-            from bokeh.models import WheelZoomTool, PanTool, ResetTool, SaveTool
-            try:
-                from streamlit_bokeh import streamlit_bokeh
-            except ImportError:
-                streamlit_bokeh = None
-
-            # 1. Create Points & Datashade
             points = hv.Points(df, kdims=[x_sel, y_sel])
+
+            # Datashader cmap
             cmap = COLOR_SCALES[colour_scheme]
-            
-            # Use dynamic=False for standalone HTML compatibility
+
             if colour_sel != "None":
-                 rasterized = datashade(points, aggregator=ds.mean(colour_sel), cmap=cmap, dynamic=False)
+                 # Use mean aggregator for value if numeric
+                 rasterized = datashade(points, aggregator=ds.mean(colour_sel), cmap=cmap)
             else:
-                 rasterized = datashade(points, cmap=cmap, dynamic=False)
-            
-            # Dynspread to ensure visibility
-            spread = dynspread(rasterized, threshold=0.5, max_px=4)
+                 rasterized = datashade(points, cmap=cmap)
 
-            # Options: Clear tools to avoid conflicts
-            opts_kwargs = dict(width=800, height=600, title=f"{title_prefix}: {selected_block} (Datashader)", tools=[])
-            spread = spread.opts(**opts_kwargs)
+            # Make it interactive with spread
+            rasterized = dynspread(rasterized, threshold=0.5, max_px=4)
 
-            # Render to Bokeh Figure
-            bokeh_plot = hv.render(spread, backend='bokeh')
+            rasterized = rasterized.opts(width=800, height=600, title=f"{title_prefix}: {selected_block} (Datashader)")
 
-            # --- Tools & Interaction ---
-            # Basic navigation tools
-            bokeh_plot.add_tools(PanTool(), WheelZoomTool(), ResetTool(), SaveTool())
-            bokeh_plot.toolbar.active_scroll = "auto"
+            st.bokeh_chart(hv.render(rasterized, backend='bokeh'), use_container_width=True)
 
-            # Render
-            if streamlit_bokeh:
-                streamlit_bokeh(bokeh_plot)
-            else:
-                st.bokeh_chart(bokeh_plot, use_container_width=True)
-
-            st.info("High performance mode enabled. Selection is disabled for large datasets.")
+            st.warning("High performance mode enabled. Lasso selection is disabled.")
             if st.button("Switch to Standard Interactive Plot (Slower, allows selection)"):
-                 st.info("To select points, please reduce 'Max points' using the slider above to under 50,000, or use the sampling option.")
+                # Force reload/re-render without datashader logic implies strictly needing a rerun with a flag,
+                # but function is stateless. We can hint user to sample down.
+                st.info("To select points, please reduce 'Max points' using the slider above to under 50,000, or use the sampling option.")
 
         except Exception as e:
             st.error(f"Datashader plotting failed: {e}")
             report_error(e)
-            # Last resort fallback
-            try:
-                 from streamlit_bokeh import streamlit_bokeh
-                 streamlit_bokeh(hv.render(spread, backend='bokeh'))
-            except:
-                 try:
-                    st.bokeh_chart(hv.render(spread, backend='bokeh'), use_container_width=True)
-                 except:
-                    pass
 
     else:
         # FULL RESTORED PLOTLY IMPLEMENTATION
         temp_cols_to_drop = []
-        try:
-            # --- 7. LOG + SAMPLING UI (Additional) ---
-            ctrl_cols_needed = 2 + (plot_type == "3D Scatter" and coord_system == "Cartesian")
-            ctrl = st.columns(ctrl_cols_needed)
+        perf_mode = st.checkbox("Slider performance mode", value=False, key=f"{title_prefix}_perf_mode")
 
-            log_x = ctrl[0].checkbox("Log X", key=f"{title_prefix}_logx", disabled=(coord_system == "Polar"))
-            log_y = ctrl[1].checkbox("Log Y", key=f"{title_prefix}_logy")
-            log_z = False
-            if plot_type == "3D Scatter" and coord_system == "Cartesian":
-                log_z = ctrl[2].checkbox("Log Z", key=f"{title_prefix}_logz")
+        try:
+            # --- 7. LOG + SAMPLING UI ---
+            # Logic handled below within/without form
+            pass
 
             # --- 8. DENSITY (if requested) ---
             dens_col = "_calculated_density"
-            if colour_sel == "Density":
+            # Need to decide if density calc happens before or after form.
+            # It depends on df which might be sampled.
+            # We'll define a function to update data/density
+
+            def calc_density(d, p_type, c_sys):
                 try:
-                    if plot_type == "3D Scatter":
-                        coords = df[[x_sel, y_sel, z_sel]].dropna()
-                    elif plot_type == "2D Scatter":
-                        coords = df[[x_sel, y_sel]].dropna()
+                    if p_type == "3D Scatter":
+                        coords = d[[x_sel, y_sel, z_sel]].dropna()
+                    elif p_type == "2D Scatter":
+                        coords = d[[x_sel, y_sel]].dropna()
                     else:
                         coords = pd.DataFrame()
 
                     if len(coords) > 1:
                         # Use Pandas/Numpy for KDE
                         kde = gaussian_kde(coords.T)
-                        df[dens_col] = np.nan
-                        df.loc[coords.index, dens_col] = kde(coords.T)
-                        colour_col_to_plot = dens_col
-                        temp_cols_to_drop.append(dens_col)
+                        d[dens_col] = np.nan
+                        d.loc[coords.index, dens_col] = kde(coords.T)
+                        return True
                     else:
                         st.warning("Need >1 point for density; falling back.")
-                        colour_col_to_plot = None
+                        return False
                 except Exception as exc:
                     st.error(f"Density calculation failed: {exc}")
-                    colour_col_to_plot = None
+                    return False
+
+            # Setup controls
+            ctrl_cols_needed = 2 + (plot_type == "3D Scatter" and coord_system == "Cartesian")
+            if allow_sampling: ctrl_cols_needed += 1
+
+            # Variables to be set by controls
+            log_x = False
+            log_y = False
+            log_z = False
+            rows_to_plot = len(df)
+
+            if perf_mode:
+                with st.form(key=f"{title_prefix}_perf_form"):
+                    ctrl = st.columns(ctrl_cols_needed)
+                    log_x = ctrl[0].checkbox("Log X", key=f"{title_prefix}_logx", disabled=(coord_system == "Polar"))
+                    log_y = ctrl[1].checkbox("Log Y", key=f"{title_prefix}_logy")
+                    if plot_type == "3D Scatter" and coord_system == "Cartesian":
+                        log_z = ctrl[2].checkbox("Log Z", key=f"{title_prefix}_logz")
+
+                    if allow_sampling and len(df_original) > 1:
+                        slider_col = ctrl[-1]
+                        rows_to_plot = slider_col.slider(
+                            f"Max points (total {len(df_original)})",
+                            min_value=1 if len(df_original) <= 100 else 100,
+                            max_value=len(df_original),
+                            value=min(max_rows_default, len(df_original)),
+                            key=f"{title_prefix}_sample_perf",
+                        )
+                    st.form_submit_button("Update Plot")
             else:
-                colour_col_to_plot = colour_sel if colour_sel != "None" else None
+                ctrl = st.columns(ctrl_cols_needed)
+                log_x = ctrl[0].checkbox("Log X", key=f"{title_prefix}_logx", disabled=(coord_system == "Polar"))
+                log_y = ctrl[1].checkbox("Log Y", key=f"{title_prefix}_logy")
+                if plot_type == "3D Scatter" and coord_system == "Cartesian":
+                    log_z = ctrl[2].checkbox("Log Z", key=f"{title_prefix}_logz")
+
+                if allow_sampling and len(df_original) > 1:
+                    slider_col = ctrl[-1]
+                    rows_to_plot = slider_col.slider(
+                        f"Max points (total {len(df_original)})",
+                        min_value=1 if len(df_original) <= 100 else 100,
+                        max_value=len(df_original),
+                        value=min(max_rows_default, len(df_original)),
+                        key=f"{title_prefix}_sample",
+                    )
+
+            # Apply sampling
+            if rows_to_plot < len(df):
+                df = df.sample(n=rows_to_plot, seed=42)
+                st.info(f"Plotting {rows_to_plot} points.")
+
+            # Apply Density
+            colour_col_to_plot = colour_sel
+            if colour_sel == "Density":
+                if calc_density(df, plot_type, coord_system):
+                    colour_col_to_plot = dens_col
+                    temp_cols_to_drop.append(dens_col)
+                else:
+                    colour_col_to_plot = None
+            elif colour_sel == "None":
+                colour_col_to_plot = None
 
             # --- 9. PLOT ARGS ---
             hover_data = {
@@ -1362,11 +1378,13 @@ def interactive_scatter_plot(
             plot_kwargs = {"hover_data": hover_data}
 
             scale = COLOR_SCALES[colour_scheme]
-            if colour_col_to_plot:
+            if colour_col_to_plot and colour_col_to_plot in df.columns:
                 if pd.api.types.is_numeric_dtype(df[colour_col_to_plot]):
                     plot_kwargs["color_continuous_scale"] = scale
                 else:
                     plot_kwargs["color_discrete_sequence"] = scale
+            elif colour_col_to_plot: # Should be None if not found, but safe check
+                 colour_col_to_plot = None
 
             label_map = {x_sel: x_sel, y_sel: y_sel}
             if z_sel: label_map[z_sel] = z_sel

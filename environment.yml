@@ -22,5 +22,3 @@ dependencies:
       - stqdm
       - PyMCubes
       - morphosamplers
-      - streamlit-bokeh
-      - streamlit-bokeh-events
