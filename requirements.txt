@@ -19,3 +19,4 @@ starfile-rs
 datashader
 holoviews
 bokeh
+opencv-python-headless

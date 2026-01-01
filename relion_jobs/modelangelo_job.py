@@ -7,6 +7,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Optional, Tuple
 import io
+from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -59,152 +60,164 @@ def _extract_v_parameter(note_content: str) -> Optional[str]:
     logger.warning("Could not find '-v <volume_path>' in note content.")
     return None
 
-## need more work
-# def calculate_residue_mean_density(
-#     atoms_df: pd.DataFrame,
-#     volume_data: np.ndarray,
-#     voxel_size: float,
-#     mode: str = "CA",  # Use "CA" for C-alpha only or "all" for all atoms per residue.
-#     radius: float = 1.0,
-#     scaled: bool = False
-# ) -> Dict[str, pd.Series]:
-#     """
-#     Calculates the average map density for each residue per chain.
-    
-#     Parameters:
-#       atoms_df: DataFrame with columns "x", "y", "z", "chain", "residue", "seq_id".
-#       volume_data: 3D numpy array representing the cryo-EM map in pixel coordinates.
-#       voxel_size: The voxel size (in angstrom per pixel). If atoms_df is not scaled, coordinates are in angstroms.
-#       mode: "CA" to use only C-alpha atoms or "all" to use all atoms for the residue.
-#       radius: Radius (in pixels) around the residue centroid to sample the map.
-#       scaled: Boolean flag indicating whether the coordinates in atoms_df are already scaled to pixel units.
-    
-#     Returns:
-#       A dictionary mapping chain identifiers to a Pandas Series. In each series the index is the residue identifier (seq_id)
-#       and the value is the mean map density calculated from the volume.
-#     """
-#     # Work on a copy of the atoms DataFrame
-#     df = atoms_df.copy()
 
-#     # If the coordinates are not already in pixel space, scale them using the voxel_size.
-#     if not scaled:
-#         df["x"] = df["x"] / voxel_size
-#         df["y"] = df["y"] / voxel_size
-#         df["z"] = df["z"] / voxel_size
+def calculate_residue_mean_density(
+    atoms_df: pd.DataFrame,
+    volume_data: np.ndarray,
+    voxel_size: float,
+    mode: str = "CA",  # Use "CA" for C-alpha only or "all" for all atoms per residue.
+    radius: float = 1.0,
+    scaled: bool = False
+) -> Dict[str, pd.Series]:
+    """
+    Calculates the average map density for each residue per chain.
 
-#     # (Optionally, if mode "CA" is desired and if the DataFrame might include multiple atom types,
-#     # the caller should provide the correct DataFrame. For our purposes, we assume the provided df is already
-#     # filtered for C-alpha if mode=="CA".)
+    Parameters:
+      atoms_df: DataFrame with columns "x", "y", "z", "chain", "residue", "seq_id".
+      volume_data: 3D numpy array representing the cryo-EM map in pixel coordinates.
+      voxel_size: The voxel size (in angstrom per pixel). If atoms_df is not scaled, coordinates are in angstroms.
+      mode: "CA" to use only C-alpha atoms or "all" to use all atoms for the residue.
+      radius: Radius (in pixels) around the residue centroid to sample the map.
+      scaled: Boolean flag indicating whether the coordinates in atoms_df are already scaled to pixel units.
 
-#     # Group the DataFrame by chain and residue (using the 'seq_id' as the residue identifier)
-#     grouped = df.groupby(["chain", "seq_id"])
+    Returns:
+      A dictionary mapping chain identifiers to a Pandas Series. In each series the index is the residue identifier (seq_id)
+      and the value is the mean map density calculated from the volume.
+    """
+    # Work on a copy of the atoms DataFrame
+    df = atoms_df.copy()
 
-#     # Precompute relative voxel offsets within a sphere of given radius.
-#     offsets = []
-#     r_int = int(np.ceil(radius))
-#     for dx in range(-r_int, r_int+1):
-#         for dy in range(-r_int, r_int+1):
-#             for dz in range(-r_int, r_int+1):
-#                 if np.sqrt(dx**2 + dy**2 + dz**2) <= radius:
-#                     offsets.append((dx, dy, dz))
-#     offsets = np.array(offsets)
+    # If the coordinates are not already in pixel space, scale them using the voxel_size.
+    if not scaled:
+        df["x"] = df["x"] / voxel_size
+        df["y"] = df["y"] / voxel_size
+        df["z"] = df["z"] / voxel_size
 
-#     def compute_density_for_group(name_group: Tuple[Tuple[Any, Any], pd.DataFrame]):
-#         """
-#         For one residue group, compute the centroid of the coordinates and then
-#         average the map density values in the volume within the spherical neighborhood.
-#         """
-#         name, group = name_group
-#         # Compute the centroid of the coordinates for this residue.
-#         centroid = group[["x", "y", "z"]].sum().values
-#         # Round the centroid to get indices for the volume.
-#         idx = np.rint(centroid).astype(int)
-#         vals = []
-#         shape = volume_data.shape  # Expect shape (nx, ny, nz)
-#         # For each pre-computed offset, get the corresponding map voxel if within bounds.
-#         for off in offsets:
-#             pt = idx + off
-#             if (
-#                 pt[0] >= 0 and pt[0] < shape[0] and
-#                 pt[1] >= 0 and pt[1] < shape[1] and
-#                 pt[2] >= 0 and pt[2] < shape[2]
-#             ):
-#                 vals.append(volume_data[pt[0], pt[1], pt[2]])
-#         if vals:
-#             return name, np.mean(vals)
-#         else:
-#             return name, np.nan
+    # Group the DataFrame by chain and residue (using the 'seq_id' as the residue identifier)
+    grouped = df.groupby(["chain", "seq_id"])
 
-#     # Process each residue group using threads for speed.
-#     results = {}
-#     with ThreadPoolExecutor() as executor:
-#         for name, mean_val in executor.map(compute_density_for_group, grouped):
-#             chain, seq_id = name
-#             if chain not in results:
-#                 results[chain] = {}
-#             results[chain][seq_id] = mean_val
+    # Precompute relative voxel offsets within a sphere of given radius.
+    offsets = []
+    r_int = int(np.ceil(radius))
+    for dx in range(-r_int, r_int+1):
+        for dy in range(-r_int, r_int+1):
+            for dz in range(-r_int, r_int+1):
+                if np.sqrt(dx**2 + dy**2 + dz**2) <= radius:
+                    offsets.append((dx, dy, dz))
+    offsets = np.array(offsets)
 
-#     # Convert each chain's dictionary into a sorted Pandas Series.
-#     density_series = {}
-#     for chain, d in results.items():
-#         s = pd.Series(d)
-#         s.sort_index(inplace=True)
-#         density_series[chain] = s
+    shape = volume_data.shape  # Expect shape (nx, ny, nz)
 
-#     return density_series
+    def compute_density_for_group(name_group: Tuple[Tuple[Any, Any], pd.DataFrame]):
+        """
+        For one residue group, compute the centroid of the coordinates and then
+        average the map density values in the volume within the spherical neighborhood.
+        """
+        name, group = name_group
+        # Compute the centroid of the coordinates for this residue.
+        # Use mean instead of sum for centroid
+        centroid = group[["x", "y", "z"]].mean().values
+        # Round the centroid to get indices for the volume.
+        idx = np.rint(centroid).astype(int)
 
-# def plot_residue_density_ui(
-#     atoms_df: pd.DataFrame,
-#     volume_data: np.ndarray,
-#     voxel_size: float,
-#     mode: str = "CA",
-#     radius: float = 1.0,
-#     scaled: bool = False
-# ) -> None:
-#     """
-#     Calculates the mean map density per residue and displays a Streamlit user interface.
-    
-#     The interface shows a selectbox (in the left column) for choosing a chain and a corresponding Plotly graph
-#     (in the right column) that plots the mean map density per residue (indexed by residue number).
-#     """
-#     # Calculate the density data per residue. This function is threaded for speed.
-#     density_data = calculate_residue_mean_density(
-#         atoms_df, volume_data, voxel_size, mode=mode, radius=radius, scaled=scaled
-#     )
-#     if not density_data:
-#         st.warning("No density data calculated.")
-#         return
+        vals = []
+        for off in offsets:
+            pt = idx + off
+            if (
+                pt[0] >= 0 and pt[0] < shape[0] and
+                pt[1] >= 0 and pt[1] < shape[1] and
+                pt[2] >= 0 and pt[2] < shape[2]
+            ):
+                vals.append(volume_data[pt[0], pt[1], pt[2]])
 
-#     # Streamlit UI: create two columns. Column 1 will hold the selectbox; Column 2 will show the plot.
-#     col1, col2 = st.columns([1, 4])
-#     chain_options = list(density_data.keys())
-#     with col1:
-#         selected_chain = st.selectbox("Select chain for residue density", chain_options)
-#     if selected_chain:
-#         series = density_data[selected_chain]
-#         fig = go.Figure()
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=series.index,
-#                 y=series.values,
-#                 mode="lines+markers",
-#                 name=f"Chain {selected_chain}"
-#             )
-#         )
-#         fig.update_layout(
-#             title=f"Mean Map Density per Residue for Chain {selected_chain}",
-#             xaxis_title="Residue (seq_id)",
-#             yaxis_title="Mean Map Density",
-#             height=600,
-#             template="plotly_dark"
-#         )
-#         col2.plotly_chart(fig, use_container_width=True)
+        if vals:
+            return name, np.mean(vals)
+        else:
+            return name, np.nan
+
+    # Process each residue group using threads for speed.
+    results = {}
+    # Use ThreadPoolExecutor
+    with ThreadPoolExecutor() as executor:
+        for name, mean_val in executor.map(compute_density_for_group, grouped):
+            chain, seq_id = name
+            if chain not in results:
+                results[chain] = {}
+            results[chain][seq_id] = mean_val
+
+    # Convert each chain's dictionary into a sorted Pandas Series.
+    density_series = {}
+    for chain, d in results.items():
+        s = pd.Series(d)
+        s.sort_index(inplace=True)
+        density_series[chain] = s
+
+    return density_series
+
+def plot_residue_density_ui(
+    atoms_df: pd.DataFrame,
+    volume_data: np.ndarray,
+    voxel_size: float,
+    mode: str = "CA",
+    radius: float = 1.0,
+    scaled: bool = False
+) -> None:
+    """
+    Calculates the mean map density per residue and displays a Streamlit user interface.
+    """
+    st.subheader("Per-Residue Density Metrics")
+
+    col_opt, col_go = st.columns([3, 1])
+    with col_opt:
+        calc_density = st.checkbox("Calculate & Plot Per-Residue Density", key="calc_res_dens")
+
+    if calc_density:
+        with st.spinner("Calculating residue densities..."):
+            density_data = calculate_residue_mean_density(
+                atoms_df, volume_data, voxel_size, mode=mode, radius=radius, scaled=scaled
+            )
+
+        if not density_data:
+            st.warning("No density data calculated.")
+            return
+
+        # Streamlit UI
+        col1, col2 = st.columns([1, 4])
+        chain_options = list(density_data.keys())
+        with col1:
+            selected_chain = st.selectbox("Select chain", chain_options, key="res_dens_chain_sel")
+
+        if selected_chain:
+            series = density_data[selected_chain]
+
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(
+                    x=series.index,
+                    y=series.values,
+                    mode="lines+markers",
+                    name="Mean Density",
+                    line=dict(color='cyan')
+                )
+            )
+
+            fig.update_layout(
+                title=f"Density Fit for Chain {selected_chain}",
+                xaxis_title="Residue ID",
+                yaxis_title="Mean Density",
+                height=500,
+                template="plotly_dark",
+                hovermode="x unified"
+            )
+            col2.plotly_chart(fig, use_container_width=True)
+
+            # Show stats
+            with st.expander("Density Stats"):
+                st.write(series.describe())
 
 
 def _read_cif_file(cif_path: str) -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, str]]]:
     # --- Using the Pandas text parsing version ---
-    # [This function remains the same as the previous working version]
-    # ... (ensure the full function is here) ...
     col_names = []
     lines_to_skip = 0
     try:
@@ -366,8 +379,6 @@ def _read_cif_file(cif_path: str) -> Tuple[Optional[pd.DataFrame], Optional[Dict
 
 
 def _load_mrc_volume(mrc_path: str) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[float]]:
-    # --- This function remains the same ---
-    # [Implementation from previous answer]
     try:
         with mrcfile.mmap(mrc_path, permissive=True) as mrc:
             volume_data = mrc.data.copy()
@@ -396,9 +407,6 @@ def _load_mrc_volume(mrc_path: str) -> Tuple[Optional[np.ndarray], Optional[np.n
 
 # --- Plotting Functions ---
 
-# ***************************************************************************
-# * MODIFIED plot_ca_atoms_plotly to accept axis units                      *
-# ***************************************************************************
 def plot_ca_atoms_plotly(ca_atoms_df: pd.DataFrame, axis_unit: str = "Å") -> Optional[go.Figure]:
     """Plots C-alpha atoms with hidden axis details (labels, ticks, numbers, grid lines)."""
     if ca_atoms_df is None or ca_atoms_df.empty:
@@ -504,13 +512,6 @@ def plot_ca_atoms_plotly(ca_atoms_df: pd.DataFrame, axis_unit: str = "Å") -> Op
     return fig
 
 
-# ***************************************************************************
-# * END OF MODIFIED plot_ca_atoms_plotly                                   *
-# ***************************************************************************
-
-# ***************************************************************************
-# * MODIFIED overlay_plots_plotly to accept axis units                      *
-# ***************************************************************************
 def overlay_plots_plotly(atom_fig: Optional[go.Figure], volume_fig: Optional[go.Figure], axis_unit: str = "px") -> go.Figure:
     """Overlays atom traces and volume trace into a NEW figure. Axis labels use the provided unit."""
     combined_fig = go.Figure()
@@ -591,14 +592,8 @@ def overlay_plots_plotly(atom_fig: Optional[go.Figure], volume_fig: Optional[go.
     logger.debug(f"Combined figure created with {len(combined_fig.data)} total traces.")
     return combined_fig
 
-# ***************************************************************************
-# * END OF MODIFIED overlay_plots_plotly                                    *
-# ***************************************************************************
 
 # --- Main Function ---
-# ***************************************************************************
-# * MODIFIED plot_modelangelo for coordinate scaling and caching            *
-# ***************************************************************************
 def plot_modelangelo(folder: str, node_files: List[str]) -> None:
     """Main Streamlit function to plot ModelAngelo job outputs with correct scaling."""
     if not node_files:
@@ -785,9 +780,10 @@ def plot_modelangelo(folder: str, node_files: List[str]) -> None:
                 logger.error("Scaling was marked applied, but pixel coordinates are missing! Re-applying.")
                 scaling_info["applied"] = False
 
-    # if volume_enabled and volume_data is not None and ca_atoms_pixels is not None:
-    #     plot_residue_density_ui(ca_atoms_angstrom, volume_data, voxel_size, mode="CA", radius=1.0, scaled=True)
-    
+    if volume_enabled and volume_data is not None and ca_atoms_pixels is not None:
+        with st.expander("Residue Density Analysis", expanded=False):
+            plot_residue_density_ui(ca_atoms_pixels, volume_data, voxel_size, mode="CA", radius=1.5, scaled=True)
+
     # --- Plotting ---
     st.markdown("---")
     plot_placeholder = st.empty()

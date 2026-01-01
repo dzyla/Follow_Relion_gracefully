@@ -318,6 +318,10 @@ def handle_folder_change():
     st.session_state[STATE_JOB_PARAMS] = {}
     st.session_state[STATE_DISPLAY_TO_ORIGINAL_PROCESS] = {}
 
+    # Update query params to persist folder across refreshes
+    if STATE_CURRENT_FOLDER in st.session_state:
+        st.query_params["folder"] = st.session_state[STATE_CURRENT_FOLDER]
+
 
 def handle_process_change():
     """Resets job state when the selected process type changes via the radio button."""
@@ -379,16 +383,18 @@ def main() -> None:
         args, _ = parser.parse_known_args()
 
         # --- Session State Initialization ---
-        # Initialize folder state using command line argument ONLY IF state is empty
+        # Initialize folder state using query params if available, else command line argument
         if STATE_DEFAULT_FOLDER not in st.session_state:
-            initial_folder = os.path.abspath(os.path.expanduser(args.folder))
+            query_params = st.query_params
+            if "folder" in query_params:
+                initial_folder = query_params["folder"]
+                logger.info("Initialized state: Default folder set from query param to %s", initial_folder)
+            else:
+                initial_folder = os.path.abspath(os.path.expanduser(args.folder))
+                logger.info("Initialized state: Default folder set from arg to %s", initial_folder)
+
             st.session_state[STATE_DEFAULT_FOLDER] = initial_folder
-            st.session_state[STATE_CURRENT_FOLDER] = (
-                initial_folder  # Also set current initially
-            )
-            logger.info(
-                "Initialized state: Default folder set from arg to %s", initial_folder
-            )
+            st.session_state[STATE_CURRENT_FOLDER] = initial_folder
         # Ensure other states have default values if not set previously
         st.session_state.setdefault(
             STATE_CURRENT_FOLDER, st.session_state[STATE_DEFAULT_FOLDER]
@@ -628,11 +634,15 @@ def main() -> None:
             else:  # No process selected
                 st.info("Select a process type or view from the sidebar.")
 
+        def on_refresh_click():
+            st.cache_data.clear()
+            handle_folder_change()
+
         st.sidebar.button(
             "Refresh",
             key="refresh_button",
-            help="Refresh the page to clear any temporary data.",
-            on_click=handle_folder_change,  # Reset state on refresh
+            help="Refresh the page to reload data and clear cache.",
+            on_click=on_refresh_click,  # Clear cache and reset state
         )
         # --- Footer ---
         st.sidebar.markdown("---")

@@ -225,7 +225,7 @@ def plot_locres(nodes: List[str], folder: str, job: str) -> None:
                 margin=dict(l=10, r=10, t=30, b=10),
                 height=600,
             )
-            
+
             st.plotly_chart(fig_s, use_container_width=True)
 
         else:  # 3-D
@@ -236,14 +236,24 @@ def plot_locres(nodes: List[str], folder: str, job: str) -> None:
             with col4:
                 colours = st.selectbox(
                     "Colour scale",
-                    ("Turbo", "Viridis", "Cividis", "Plasma", "Inferno", "Haline"),
+                    ("Turbo", "Viridis", "Cividis", "Plasma", "Inferno", "Haline", "RdYlBu", "RdBu", "Jet", "Rainbow"),
                     index=0,
                     key=f"{job}_cmap",
                 )
 
+            white_bg = st.checkbox("White Background", key=f"{job}_bg")
+
             with st.spinner("Rendering 3-D view…"):
                 fig_iso = _plot_isosurface(raw, loc_clip, thr, max_size=dim, colourscale=colours)
             if fig_iso:
+                if white_bg:
+                    fig_iso.update_layout(
+                        paper_bgcolor="white",
+                        plot_bgcolor="white",
+                        scene=dict(bgcolor="white")
+                    )
+                    # Update text colors if needed for visibility
+                    fig_iso.update_layout(font=dict(color="black"))
                 st.plotly_chart(fig_iso, use_container_width=True)
 
         # ── histogram / KDE (use clipped values) ───────────────────────────
