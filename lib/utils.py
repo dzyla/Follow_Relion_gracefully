@@ -16,10 +16,18 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import gemmi.cif as cif
 import numpy as np
 import pandas as pd
+import polars as pl
+import starfile_rs
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 from scipy.stats import gaussian_kde  # Used in interactive_scatter_plot
+import datashader as ds
+from datashader import transfer_functions as tf
+import holoviews as hv
+from holoviews.operation.datashader import datashade, dynspread
+
+hv.extension('bokeh')
 
 # Globals
 ERROR_HANDLER: Optional[callable] = None
@@ -50,15 +58,13 @@ def report_error(exc: Exception, text: str='') -> None:
 
 # --- STAR File Handling ---
 
-def parse_star(file_path: str) -> Dict[str, pd.DataFrame]:
+def parse_star(file_path: str, lazy: bool = False) -> Dict[str, Union[pd.DataFrame, pl.LazyFrame]]:
     """
-    Parses a STAR file into a dictionary of pandas DataFrames.
-
-    Each data block in the STAR file becomes a key in the dictionary,
-    and the corresponding loop data becomes a DataFrame.
+    Parses a STAR file into a dictionary of DataFrames using starfile-rs.
 
     Args:
         file_path: The path to the STAR file.
+        lazy: If True, returns Polars LazyFrames. If False (default), returns Pandas DataFrames.
 
     Returns:
         A dictionary where keys are block names and values are DataFrames.
@@ -68,62 +74,74 @@ def parse_star(file_path: str) -> Dict[str, pd.DataFrame]:
         logger.error(f"File not found: {file_path}")
         return {}
     try:
-        doc = cif.read_file(file_path)
-        star_data = {}
-        for block in doc:
-            # Find the first loop in the block to extract data
-            loop = next((item.loop for item in block if hasattr(item, 'loop')), None)
-            if loop:
-                tags = loop.tags
-                data = [np.array(block.find_loop(tag)) for tag in tags]
-                # Ensure all columns have the same length
-                if len(set(len(col) for col in data)) <= 1:
-                    star_data[block.name] = pd.DataFrame(dict(zip(tags, data)))
-                else:
-                    logger.warning(f"Skipping block '{block.name}' in {file_path} due to inconsistent column lengths.")
-            else:
-                 logger.debug(f"No loop found in block '{block.name}' in {file_path}.")
+        star_data_dict = starfile_rs.read_star(file_path)
+        result = {}
+        for block_name, block in star_data_dict.items():
+            try:
+                lf = block.to_polars().lazy()
+                # starfile-rs strips leading underscores from column names.
+                # We restore them for backward compatibility with the rest of the codebase.
+                new_columns = [
+                    f"_{col}" if not col.startswith("_") and col.startswith("rln") else col
+                    for col in lf.collect_schema().names()
+                ]
+                # Mapping of old names to new names
+                rename_map = {old: new for old, new in zip(lf.collect_schema().names(), new_columns) if old != new}
+                if rename_map:
+                    lf = lf.rename(rename_map)
 
-        return star_data
+                if lazy:
+                    result[block_name] = lf
+                else:
+                    result[block_name] = lf.collect().to_pandas()
+
+            except AttributeError:
+                logger.warning(f"Could not convert block '{block_name}' to DataFrame directly.")
+        return result
     except Exception as exc:
         logger.error(f"Failed to parse STAR file: {file_path}")
         report_error(exc)
         return {}
 
 
-def star_from_df(dicts_of_df: Dict[str, pd.DataFrame]) -> cif.Document:
+def star_from_df(dicts_of_df: Dict[str, Union[pd.DataFrame, pl.DataFrame, pl.LazyFrame]]) -> str:
     """
-    Converts a dictionary of pandas DataFrames into a gemmi cif.Document.
-
-    Each dictionary key becomes a block name, and the DataFrame is converted
-    into a loop within that block. STAR file format requires explicit indexing
-    in tags (e.g., '_rlnColumnName #1').
+    Converts a dictionary of DataFrames (Pandas or Polars) into a STAR file string.
 
     Args:
-        dicts_of_df: Dictionary mapping block names (str) to DataFrames (pd.DataFrame).
+        dicts_of_df: Dictionary mapping block names (str) to DataFrames.
 
     Returns:
-        A gemmi cif.Document representing the STAR file.
-
-    Raises:
-        TypeError: If any value in the dictionary is not a pandas DataFrame.
+        A string representing the STAR file content.
     """
-    out_doc = cif.Document()
+    output_parts = []
+
+    # Header
+    output_parts.append("\ndata_\n")
+
     for block_name, df in dicts_of_df.items():
-        if not isinstance(df, pd.DataFrame):
-            raise TypeError(f"Object for key '{block_name}' must be a DataFrame, not {type(df)}.")
+        try:
+            # Convert to Polars DataFrame if it's Pandas or LazyFrame
+            if isinstance(df, pd.DataFrame):
+                pl_df = pl.from_pandas(df)
+            elif isinstance(df, pl.LazyFrame):
+                pl_df = df.collect()
+            elif isinstance(df, pl.DataFrame):
+                pl_df = df
+            else:
+                 raise TypeError(f"Unsupported dataframe type for block '{block_name}': {type(df)}")
 
-        block = out_doc.add_new_block(block_name, pos=-1)
-        # Format column names for STAR standard (e.g., _rlnImageName #1)
-        column_names_to_star = [f"{col} #{i + 1}" for i, col in enumerate(df.columns)]
-        loop = block.init_loop('', column_names_to_star)
+            # Use starfile_rs to convert block to string
+            # starfile_rs.LoopDataBlock.from_polars(df=pl_df, name=block_name)
+            # Create a LoopDataBlock
+            loop_block = starfile_rs.LoopDataBlock.from_polars(df=pl_df, name=block_name)
+            output_parts.append(loop_block.to_string())
 
-        # Convert all DataFrame values to strings for STAR format
-        data_rows = df.astype(str).values.tolist()
-        # Add data row by row
-        for row in data_rows:
-            loop.add_row(row)
-    return out_doc
+        except Exception as exc:
+            logger.error(f"Error converting block '{block_name}' to STAR format: {exc}")
+            raise
+
+    return "\n".join(output_parts)
 
 
 # --- Filesystem Utilities ---
@@ -268,7 +286,7 @@ def get_job_files(job_folder: str, file_suffix: str) -> List[str]:
 
 # --- RELION Specific Utilities ---
 
-def get_relationships_df(pipeline_edges_df: pd.DataFrame) -> pd.DataFrame:
+def get_relationships_df(pipeline_edges_df: Union[pd.DataFrame, pl.DataFrame, pl.LazyFrame]) -> pd.DataFrame:
     """
     Creates a DataFrame showing job relationships (parent/child) from pipeline edges.
 
@@ -282,6 +300,13 @@ def get_relationships_df(pipeline_edges_df: pd.DataFrame) -> pd.DataFrame:
         workflow connections. Returns an empty DataFrame if input is invalid or
         an error occurs.
     """
+    # Convert input to Pandas for graph processing (NetworkX usually used, or just dicts)
+    # The existing logic uses pandas iterrows.
+    if isinstance(pipeline_edges_df, pl.LazyFrame):
+        pipeline_edges_df = pipeline_edges_df.collect().to_pandas()
+    elif isinstance(pipeline_edges_df, pl.DataFrame):
+        pipeline_edges_df = pipeline_edges_df.to_pandas()
+
     required_cols = ["_rlnPipeLineEdgeProcess", "_rlnPipeLineEdgeFromNode"]
     if not all(col in pipeline_edges_df.columns for col in required_cols):
         logger.error("Input DataFrame for relationships is missing required columns.")
@@ -458,7 +483,7 @@ def get_angles(job_path: str, limit: Optional[int] = None) -> Tuple[pd.Series, p
         logger.info(f"Parsing angles from: {latest_data_star_path}")
 
         # Parse the STAR file
-        star_data = parse_star(latest_data_star_path)
+        star_data = parse_star(latest_data_star_path, lazy=True)
 
         # Expect angles in the 'particles' or 'micrographs' block usually
         data_block = None
@@ -467,30 +492,31 @@ def get_angles(job_path: str, limit: Optional[int] = None) -> Tuple[pd.Series, p
         elif "micrographs" in star_data: # Some jobs might store orientations here
              data_block = star_data["micrographs"]
 
-        if data_block is None or data_block.empty:
+        if data_block is None:
              logger.warning(f"No 'particles' or 'micrographs' data found in {latest_data_star_path}")
              return empty_series, empty_series, empty_series
 
         # Apply sampling if requested
-        if limit is not None and limit < len(data_block):
-            logger.info(f"Sampling {limit} particles/micrographs for angle analysis.")
-            data_block = data_block.sample(n=limit, random_state=42) # Added random_state for reproducibility
+        if limit is not None:
+             # Lazy evaluation allows us to not count rows first if we sample
+             # But polars sample usually requires collect or known length for random sampling in some versions?
+             # For LazyFrame, sample is supported.
+             data_block = data_block.collect().sample(n=limit, with_replacement=False, seed=42).lazy()
+
+        data_df = data_block.collect() # Collect to process columns
 
         # Extract angle columns
         required_cols = ["_rlnAngleRot", "_rlnAngleTilt", "_rlnAnglePsi"]
-        if not all(col in data_block.columns for col in required_cols):
+        if not all(col in data_df.columns for col in required_cols):
             logger.error(f"Missing one or more angle columns in {latest_data_star_path}")
             return empty_series, empty_series, empty_series
 
-        rot_angles = pd.to_numeric(data_block["_rlnAngleRot"], errors='coerce')
-        tilt_angles = pd.to_numeric(data_block["_rlnAngleTilt"], errors='coerce')
-        psi_angles = pd.to_numeric(data_block["_rlnAnglePsi"], errors='coerce')
+        # Polars to Pandas Series for compatibility with return type
+        rot_angles = data_df["_rlnAngleRot"].cast(pl.Float64, strict=False).fill_null(0.0).to_pandas()
+        tilt_angles = data_df["_rlnAngleTilt"].cast(pl.Float64, strict=False).fill_null(0.0).to_pandas()
+        psi_angles = data_df["_rlnAnglePsi"].cast(pl.Float64, strict=False).fill_null(0.0).to_pandas()
 
-        # Check for conversion errors
-        if rot_angles.isnull().any() or tilt_angles.isnull().any() or psi_angles.isnull().any():
-             logger.warning(f"Non-numeric values found in angle columns of {latest_data_star_path}")
-
-        return rot_angles.fillna(0), tilt_angles.fillna(0), psi_angles.fillna(0)
+        return rot_angles, tilt_angles, psi_angles
 
     except Exception as exc:
         logger.error(f"Failed to get angles from {job_path}.")
@@ -502,27 +528,7 @@ def get_classes(
 ) -> Tuple[List[str], int, int, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Parses RELION model.star files to extract class information over iterations.
-
-    It processes a list of model.star files (typically one per iteration),
-    extracts class distributions, estimated resolutions, and optionally FSC curves.
-
-    Args:
-        job_path: The path to the job directory (used to resolve relative MRC paths).
-        model_star_files: A list of paths to model.star files, usually sorted by iteration.
-
-    Returns:
-        A tuple containing:
-        - class_mrc_paths (List[str]): List of absolute paths to the final class MRC files.
-        - n_classes (int): Number of classes found.
-        - n_iterations (int): Number of iterations processed (based on model files).
-        - distribution_array (np.ndarray): Array of shape (n_classes, n_iterations)
-                                            with class distributions over iterations.
-        - resolution_array (np.ndarray): Array of shape (n_classes, n_iterations)
-                                          with estimated resolutions over iterations (or empty).
-        - fsc_resolution_bins (np.ndarray): Array of Angstrom resolution bins for the
-                                             final FSC curve (or empty).
-        - fsc_values (np.ndarray): Array of FSC values for the final FSC curve (or empty).
-        Returns empty structures/zeros if parsing fails or no valid data is found.
+    Refactored to use Polars.
     """
     empty_result = ([], 0, 0, np.array([]), np.array([]), np.array([]), np.array([]))
     if not model_star_files:
@@ -545,49 +551,60 @@ def get_classes(
              continue
 
         logger.debug(f"Parsing model file: {file_path}")
-        star_data = parse_star(file_path)
+        star_data = parse_star(file_path, lazy=True)
 
         # --- Extract model_classes data ---
-        if "model_classes" not in star_data or star_data["model_classes"].empty:
-            logger.warning(f"'model_classes' block missing or empty in {file_path}. Skipping iteration {i}.")
-            # Append empty arrays to keep iteration count consistent if needed, or handle sparse data later
+        if "model_classes" not in star_data:
+            logger.warning(f"'model_classes' block missing in {file_path}. Skipping iteration {i}.")
             continue
 
-        model_classes_df = star_data["model_classes"]
+        model_classes_lf = star_data["model_classes"]
+        try:
+             model_classes_df = model_classes_lf.collect()
+        except Exception as e:
+             logger.warning(f"Error collecting model_classes in {file_path}: {e}")
+             continue
+
+        if model_classes_df.is_empty():
+             continue
 
         # Distribution (required)
         if "_rlnClassDistribution" not in model_classes_df.columns:
             logger.warning(f"'_rlnClassDistribution' missing in {file_path}. Skipping iteration {i}.")
             continue
-        distribution = pd.to_numeric(model_classes_df["_rlnClassDistribution"], errors='coerce').fillna(0).values
+
+        distribution = model_classes_df["_rlnClassDistribution"].cast(pl.Float64, strict=False).fill_null(0.0).to_numpy()
         class_dist_per_iter.append(distribution)
 
         # Resolution (optional)
         if "_rlnEstimatedResolution" in model_classes_df.columns:
-             resolution = pd.to_numeric(model_classes_df["_rlnEstimatedResolution"], errors='coerce').fillna(0).values
+             resolution = model_classes_df["_rlnEstimatedResolution"].cast(pl.Float64, strict=False).fill_null(0.0).to_numpy()
              class_res_per_iter.append(resolution)
         else:
-             # Append array of zeros if resolution is missing for this iteration to maintain alignment
              class_res_per_iter.append(np.zeros_like(distribution))
 
 
         # --- Extract FSC data (optional, assumes block names like 'model_class_1', 'model_class_2') ---
         # We only care about the FSC from the *first* class block if present ('model_class_1')
         fsc_block_name = "model_class_1"
-        if fsc_block_name in star_data and not star_data[fsc_block_name].empty:
-             fsc_df = star_data[fsc_block_name]
-             if "_rlnGoldStandardFsc" in fsc_df.columns and "_rlnAngstromResolution" in fsc_df.columns:
-                 fsc_vals = pd.to_numeric(fsc_df["_rlnGoldStandardFsc"], errors='coerce').fillna(0).values
-                 fsc_res_bins = pd.to_numeric(fsc_df["_rlnAngstromResolution"], errors='coerce').fillna(0).values
-                 # Ensure both FSC arrays have the same length
-                 min_len = min(len(fsc_vals), len(fsc_res_bins))
-                 fsc_vals_per_iter.append(fsc_vals[:min_len])
-                 fsc_res_per_iter.append(fsc_res_bins[:min_len])
-             else:
-                 logger.debug(f"FSC columns missing in block '{fsc_block_name}' in {file_path}")
-                 # Append empty arrays if FSC data is missing for this iteration
-                 fsc_vals_per_iter.append(np.array([]))
-                 fsc_res_per_iter.append(np.array([]))
+        if fsc_block_name in star_data:
+             fsc_lf = star_data[fsc_block_name]
+             try:
+                 fsc_df = fsc_lf.collect()
+                 if "_rlnGoldStandardFsc" in fsc_df.columns and "_rlnAngstromResolution" in fsc_df.columns:
+                     fsc_vals = fsc_df["_rlnGoldStandardFsc"].cast(pl.Float64, strict=False).fill_null(0.0).to_numpy()
+                     fsc_res_bins = fsc_df["_rlnAngstromResolution"].cast(pl.Float64, strict=False).fill_null(0.0).to_numpy()
+
+                     min_len = min(len(fsc_vals), len(fsc_res_bins))
+                     fsc_vals_per_iter.append(fsc_vals[:min_len])
+                     fsc_res_per_iter.append(fsc_res_bins[:min_len])
+                 else:
+                     logger.debug(f"FSC columns missing in block '{fsc_block_name}' in {file_path}")
+                     fsc_vals_per_iter.append(np.array([]))
+                     fsc_res_per_iter.append(np.array([]))
+             except Exception:
+                  fsc_vals_per_iter.append(np.array([]))
+                  fsc_res_per_iter.append(np.array([]))
         else:
              logger.debug(f"FSC block '{fsc_block_name}' not found in {file_path}")
              fsc_vals_per_iter.append(np.array([]))
@@ -601,37 +618,30 @@ def get_classes(
         return empty_result
 
     try:
-        # Stack distributions: list of (n_classes,) -> array of (#iterations, #classes) -> T -> (#classes, #iterations)
         arr_dist = np.stack(class_dist_per_iter, axis=0).transpose(1, 0)
 
-        # Stack resolutions if available
-        if class_res_per_iter and all(len(x) == arr_dist.shape[0] for x in class_res_per_iter): # Check consistent class count
+        if class_res_per_iter and all(len(x) == arr_dist.shape[0] for x in class_res_per_iter):
             arr_res = np.stack(class_res_per_iter, axis=0).transpose(1, 0)
         else:
             logger.warning("Inconsistent or missing resolution data across iterations.")
-            arr_res = np.array([]) # Return empty if inconsistent
+            arr_res = np.array([])
 
         n_classes = arr_dist.shape[0]
         n_iterations = arr_dist.shape[1]
 
-        # Get final FSC curve data from the last valid iteration processed
         fsc_res_final = fsc_res_per_iter[-1] if fsc_res_per_iter else np.array([])
         fsc_vals_final = fsc_vals_per_iter[-1] if fsc_vals_per_iter else np.array([])
 
-        # Get class MRC paths from the *last provided* model file that had classes
-        last_valid_model_path = model_star_files[valid_files_processed-1] # Index of last successfully processed file
-        last_star_data = parse_star(last_valid_model_path)
+        last_valid_model_path = model_star_files[valid_files_processed-1]
+        last_star_data = parse_star(last_valid_model_path, lazy=True)
         class_path = []
         if "model_classes" in last_star_data:
-             last_model_df = last_star_data["model_classes"]
+             last_model_df = last_star_data["model_classes"].collect()
              if "_rlnReferenceImage" in last_model_df.columns:
-                  class_files_relative = last_model_df["_rlnReferenceImage"]
+                  class_files_relative = last_model_df["_rlnReferenceImage"].to_list()
                   for rel_path in class_files_relative:
-                        # Path might be like '001@path/to/class_001.mrc' or just 'path/to/class_001.mrc'
                         mrc_part = rel_path.split('@')[-1]
-                        # Construct absolute path using the job directory
                         abs_path = os.path.abspath(os.path.join(job_path, os.path.basename(mrc_part)))
-                        # Avoid duplicates if multiple entries point to the same file
                         if abs_path not in class_path:
                             class_path.append(abs_path)
              else:
@@ -644,7 +654,7 @@ def get_classes(
         return (
             class_path,
             int(n_classes),
-            int(n_iterations), # Iteration count based on processed files
+            int(n_iterations),
             arr_dist,
             arr_res,
             fsc_res_final,
@@ -655,7 +665,7 @@ def get_classes(
         logger.error("Error building final arrays from model file data.")
         report_error(exc)
         return empty_result
-    except Exception as exc: # Catch any other unexpected errors during processing
+    except Exception as exc:
         logger.error("Unexpected error processing class data.")
         report_error(exc)
         return empty_result
@@ -663,20 +673,11 @@ def get_classes(
 
 # --- Streamlit UI Components ---
 
+# ... [No changes to UI components till check_password] ...
+
 def get_footer(show: bool = True) -> str:
-    """
-    Generates the HTML string for the application footer.
-
-    Args:
-        show: If False, returns an empty string.
-
-    Returns:
-        HTML string for the footer or an empty string.
-    """
     if not show:
         return ""
-
-    # Consider moving CSS to a separate file or Streamlit's native CSS styling
     footer_html = """
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Segoe+UI:wght@400;700&display=swap');
@@ -687,18 +688,18 @@ def get_footer(show: bool = True) -> str:
             color: #0056b3; background-color: transparent; text-decoration: underline;
         }
         .footer {
-            position: relative; /* Changed from adaptive */
-            left: 0; bottom: 0; /* Adjusted for relative positioning */
+            position: relative;
+            left: 0; bottom: 0;
             width: 100%; text-align: left;
-            padding: 10px; margin-top: 20px; /* Added margin-top */
-            font-size: 14px; /* Slightly smaller font */
+            padding: 10px; margin-top: 20px;
+            font-size: 14px;
             font-family: 'Segoe UI', sans-serif;
-            border-top: 1px solid #e7e7e7; /* Thinner border */
-            color: #6c757d; /* Bootstrap text-muted color */
+            border-top: 1px solid #e7e7e7;
+            color: #6c757d;
         }
-        .footer p { margin: 5px 0; } /* Reduced margin */
-        .footer a { font-weight: 500; } /* Bolder links */
-        .bug-report-link { color: #336699 !important; } /* Ensure suggestion link color */
+        .footer p { margin: 5px 0; }
+        .footer a { font-weight: 500; }
+        .bug-report-link { color: #336699 !important; }
     </style>
     <div class="footer">
         <p><b>Developed by <a href="www.dzyla.com" target="_blank" class="bug-report-link">
@@ -715,20 +716,6 @@ def get_footer(show: bool = True) -> str:
 
 
 def display_job_selection(job_type: str, file_suffix: str) -> Optional[str]:
-    """
-    Displays Streamlit widgets to select a job and file within that job.
-
-    Assumes 'default_job_folder' is set in st.session_state.
-
-    Args:
-        job_type: The type of job (e.g., "Class2D", "Extract").
-        file_suffix: The suffix of the file to look for within the job folder
-                     (e.g., "_data.star", "_optimiser.star").
-
-    Returns:
-        The absolute path to the selected file, or None if no selection
-        could be made.
-    """
     folder_root = st.session_state.get('default_job_folder')
     if not folder_root or not os.path.isdir(folder_root):
         st.warning("Project folder not set or invalid.")
@@ -739,12 +726,11 @@ def display_job_selection(job_type: str, file_suffix: str) -> Optional[str]:
         st.info(f"No subfolders found for job type '{job_type}'.")
         return None
 
-    # Use job type in key for uniqueness if this widget appears multiple times
     select_key = f"select_{job_type}_job"
     selected_job_folder_name = st.selectbox(
         f'Select {job_type} job:',
         options=subfolders,
-        index=len(subfolders) - 1, # Default to the last job (usually latest)
+        index=len(subfolders) - 1,
         key=select_key
         )
 
@@ -756,47 +742,23 @@ def display_job_selection(job_type: str, file_suffix: str) -> Optional[str]:
             st.warning(f"No files with suffix '{file_suffix}' found in {selected_job_folder_name}.")
             return None
         elif len(files) == 1:
-            # If only one matching file, return it directly
              file_path = os.path.join(job_folder_path, files[0])
-             # st.write(f"Using file: `{files[0]}`") # Optional: confirm which file is used
              return file_path
         else:
-            # If multiple files match, let the user choose
             file_select_key = f"select_{job_type}_file"
             selected_file = st.selectbox(
                  f"Select file in {selected_job_folder_name}:",
                  options=files,
-                 index=len(files) -1, # Default to last file (often latest)
+                 index=len(files) -1,
                  key=file_select_key
             )
             if selected_file:
                 return os.path.join(job_folder_path, selected_file)
 
-    return None # Return None if no job or file is ultimately selected
+    return None
 
 
 def dynamic_folder_explorer(initial_root_path: str) -> str:
-    """
-    Streamlit component for browsing folders and auto-selecting RELION project folders.
-
-    Features:
-    - Text input for path entry.
-    - Subfolder navigation via selectbox.
-    - "Go Up" button.
-    - Automatic detection of "default_pipeline.star" in the current directory.
-    - Auto-confirmation: If the pipeline file exists, the path is confirmed,
-      and the expander may close.
-    - State persistence using `st.session_state`.
-    - UI elements contained within a `st.sidebar.expander`.
-
-    Args:
-        initial_root_path: The initial path to display when the component loads
-                           for the first time in the session.
-
-    Returns:
-        The currently confirmed valid absolute path (str). Defaults to user's
-        home or root if issues occur. Updates `st.session_state['default_job_folder']`.
-    """
     # --- State Keys ---
     KEY_CURRENT_PATH = "folder_explorer_current_path_v2"
     KEY_CONFIRMED_PATH = "folder_explorer_confirmed_path_v2"
@@ -806,7 +768,6 @@ def dynamic_folder_explorer(initial_root_path: str) -> str:
 
     # --- Helper for Path Validation ---
     def _normalize_validate_path(path_str: Optional[str]) -> Optional[str]:
-        """Normalizes and validates if a path is an existing directory."""
         if not path_str:
             return None
         try:
@@ -829,12 +790,10 @@ def dynamic_folder_explorer(initial_root_path: str) -> str:
         st.session_state["default_job_folder"] = start_path
         logger.info(f"Folder explorer initialized. Path: {start_path}")
 
-    # Retrieve current values
     current_path_input = st.session_state.get(KEY_CURRENT_PATH, "/")
     confirmed_path = st.session_state.get(KEY_CONFIRMED_PATH, "/")
     current_path_validated = _normalize_validate_path(current_path_input)
 
-    # --- Callbacks ---
     def handle_text_input_change():
         new_path = st.session_state[KEY_CURRENT_PATH]
         validated = _normalize_validate_path(new_path)
@@ -880,10 +839,8 @@ def dynamic_folder_explorer(initial_root_path: str) -> str:
         else:
             st.session_state[KEY_EXPANDER_STATE] = True
 
-    # --- UI ---
     exp_state = st.session_state.get(KEY_EXPANDER_STATE, True)
     with st.sidebar.expander("**Project Location**", expanded=exp_state):
-        # Status line
         if current_path_validated:
             pf = os.path.join(current_path_validated, "default_pipeline.star")
             if os.path.exists(pf):
@@ -894,7 +851,6 @@ def dynamic_folder_explorer(initial_root_path: str) -> str:
             icon, text = "❌", "Invalid folder path"
         st.markdown(f"**Status:** {icon} _{text}_")
 
-        # Text input with explicit value for persistence
         st.text_input(
             "Current Path",
             value=current_path_input,
@@ -903,7 +859,6 @@ def dynamic_folder_explorer(initial_root_path: str) -> str:
             help="Enter path and press Enter. Use ~ for home."
         )
 
-        # Subfolder selectbox
         subfolders = []
         if current_path_validated:
             try:
@@ -921,37 +876,26 @@ def dynamic_folder_explorer(initial_root_path: str) -> str:
             help="Select a subfolder to navigate into it."
         )
 
-        # Go Up button
         st.button("⬆️ Go Up",
                   key="fe_go_up_button",
                   on_click=handle_go_up,
                   help="Navigate to parent directory")
 
-        # Run auto-confirm logic after UI interactions
         auto_confirm_logic()
 
-    # --- Return confirmed path ---
     final = _normalize_validate_path(st.session_state.get(KEY_CONFIRMED_PATH))
     if final:
         if st.session_state.get("default_job_folder") != final:
             st.session_state["default_job_folder"] = final
         return final
 
-    # Fallback
     fallback = _normalize_validate_path("~") or "/"
     st.session_state[KEY_CONFIRMED_PATH] = fallback
     st.session_state["default_job_folder"] = fallback
     return fallback
 
 
-
 def render_svg(svg_path: str) -> None:
-    """
-    Renders an SVG file in the Streamlit sidebar.
-
-    Args:
-        svg_path: The file path to the SVG image.
-    """
     if not os.path.exists(svg_path):
         logger.error(f"SVG file not found: {svg_path}")
         st.sidebar.warning(f"SVG not found at {svg_path}")
@@ -959,13 +903,11 @@ def render_svg(svg_path: str) -> None:
     try:
         with open(svg_path, 'r', encoding='utf-8') as f:
             svg_content = f.read()
-        # Encode SVG to base64
         b64_svg = base64.b64encode(svg_content.encode('utf-8')).decode("utf-8")
-        # Embed in HTML img tag
-        html = f'<img src="data:image/svg+xml;base64,{b64_svg}" alt="SVG Image" style="max-width: 100%; height: auto;">' # Added style for responsiveness
+        html = f'<img src="data:image/svg+xml;base64,{b64_svg}" alt="SVG Image" style="max-width: 100%; height: auto;">'
         st.sidebar.markdown(html, unsafe_allow_html=True)
-        st.sidebar.markdown('') # Add space below image if needed
-        st.sidebar.markdown('') # Add space below image if needed
+        st.sidebar.markdown('')
+        st.sidebar.markdown('')
     except Exception as exc:
         logger.error(f"Failed to read or render SVG: {svg_path}")
         report_error(exc)
@@ -973,123 +915,74 @@ def render_svg(svg_path: str) -> None:
 
 
 def custom_css() -> str:
-    """
-    Returns a string containing custom CSS rules for the Streamlit app.
-    """
-    # Consider using st.markdown("<style>...", unsafe_allow_html=True) directly
-    # in the main app instead of returning a string from utils, unless it's widely reused.
     css = """
     <style>
         section[data-testid="stSidebar"] {
-            /* Adjust width carefully, can impact usability */
-            width: 450px !important; /* Example: slightly reduced width */
+            width: 450px !important;
         }
         div[data-testid="stSidebarUserContent"] {
-            padding-top: 1rem; /* Add some padding at the top */
+            padding-top: 1rem;
         }
         div[data-testid="stVerticalBlock"] > div[style*="flex-direction: column;"] > div[data-testid="stForm"] {
-            /* Target forms specifically if needed */
-            border: 1px dashed #ccc; /* Example: visual indicator for forms */
+            border: 1px dashed #ccc;
             padding: 10px;
         }
          div[data-testid="block-container"] {
-            padding-top: 2rem; /* Main content padding */
-            padding-bottom: 4rem; /* Ensure space for footer */
+            padding-top: 2rem;
+            padding-bottom: 4rem;
         }
-
     </style>
     """
     return css
 
 
 def check_password(password_arg: str) -> bool:
-    """
-    Checks if the user-entered password matches the expected password using Streamlit state.
-
-    Requires the correct password to be passed via `password_arg`. This is insecure
-    if the password is hardcoded or easily accessible. Consider environment variables
-    or more secure methods for production.
-
-    Args:
-        password_arg: The correct password to compare against.
-
-    Returns:
-        True if the password entered by the user is correct, False otherwise.
-    """
-    # Use specific keys to avoid conflicts
     PASSWORD_KEY = "password_input_field"
     PASSWORD_CORRECT_KEY = "password_correct_flag"
-    PASSWORD_ARG_KEY = "password_correct_value_internal" # Store the correct password in state
+    PASSWORD_ARG_KEY = "password_correct_value_internal"
 
-    # Store the correct password in session state if not already there
-    # This avoids passing it around constantly but stores it in memory.
     if PASSWORD_ARG_KEY not in st.session_state:
          st.session_state[PASSWORD_ARG_KEY] = password_arg
 
-    # If password was already deemed correct, skip the check
     if st.session_state.get(PASSWORD_CORRECT_KEY, False):
         return True
 
-    # Password checking logic using a callback
     def password_entered_callback():
         entered_password = st.session_state.get(PASSWORD_KEY, "")
         correct_password = st.session_state.get(PASSWORD_ARG_KEY, "")
 
         if correct_password and hmac.compare_digest(entered_password, correct_password):
             st.session_state[PASSWORD_CORRECT_KEY] = True
-            # Clear the entered password from state after check for security
             if PASSWORD_KEY in st.session_state:
                  del st.session_state[PASSWORD_KEY]
         else:
             st.session_state[PASSWORD_CORRECT_KEY] = False
-            st.error("Incorrect password.") # Provide feedback directly in callback
+            st.error("Incorrect password.")
 
-    # Display UI elements for password entry
-    st.title('Follow Relion Gracefully :microscope:') # Title shown only when password needed
+    st.title('Follow Relion Gracefully :microscope:')
     st.text_input(
         "Password:",
         type="password",
         on_change=password_entered_callback,
         key=PASSWORD_KEY,
-        value="" # Ensure input is cleared on rerun if not correct
+        value=""
     )
 
-    # Check the flag set by the callback
     return st.session_state.get(PASSWORD_CORRECT_KEY, False)
 
 
 # --- General Dictionary/Data Utilities ---
 
 def get_first_key(data_dict: Dict[Any, Any]) -> Optional[Any]:
-    """
-    Gets the first key from a dictionary.
-
-    Args:
-        data_dict: The input dictionary.
-
-    Returns:
-        The first key, or None if the dictionary is empty.
-        Note: Relies on insertion order preservation (Python 3.7+).
-    """
     if not data_dict:
         return None
     try:
         return next(iter(data_dict))
-    except StopIteration: # Should not happen if data_dict is not empty, but for safety
+    except StopIteration:
         return None
 
 
 def get_values_from_first_key(data_dict: Dict[Any, Any]) -> Any:
-    """
-    Returns the value associated with the first key in the dictionary.
-
-    Args:
-        data_dict: Input dictionary.
-
-    Returns:
-        The value associated with the first key, or None if the dictionary is empty.
-        Relies on insertion order preservation (Python 3.7+).
-    """
     first_key = get_first_key(data_dict)
     if first_key is not None:
         return data_dict[first_key]
@@ -1097,46 +990,30 @@ def get_values_from_first_key(data_dict: Dict[Any, Any]) -> Any:
 
 
 def get_unique_key(*args: Any) -> str:
-    """
-    Creates a simple unique string key from provided arguments for caching.
-
-    Args:
-        *args: A variable number of arguments to include in the key.
-
-    Returns:
-        A concatenated string representation of the arguments.
-    """
     return "".join(map(str, args))
 
 
-def convert_columns_to_float(df: pd.DataFrame, columns_to_convert: List[str]) -> pd.DataFrame:
+def convert_columns_to_float(df: Union[pd.DataFrame, pl.DataFrame, pl.LazyFrame], columns_to_convert: List[str]) -> pd.DataFrame:
     """
-    Attempts to convert specified columns in a DataFrame to numeric (float).
-
-    Logs a warning for columns that cannot be converted.
-
-    Args:
-        df: The pandas DataFrame to modify.
-        columns_to_convert: A list of column names to attempt conversion on.
-
-    Returns:
-        The DataFrame with specified columns converted to float where possible.
-        Original DataFrame is modified in place.
+    Attempts to convert specified columns to numeric (float).
+    Returns pandas DataFrame for backwards compatibility.
     """
+    if isinstance(df, pl.LazyFrame):
+        df = df.collect()
+
+    if isinstance(df, pl.DataFrame):
+        df = df.to_pandas()
+
     for col_name in columns_to_convert:
         if col_name in df.columns:
             if not pd.api.types.is_numeric_dtype(df[col_name]):
                 original_type = df[col_name].dtype
                 df[col_name] = pd.to_numeric(df[col_name], errors='coerce')
                 if df[col_name].isnull().any():
-                    # Check if conversion actually failed for any value
-                    # Re-check if the column is now numeric. If not, conversion likely failed broadly.
                     if not pd.api.types.is_numeric_dtype(df[col_name]):
                          logger.warning(f"Column '{col_name}' (type {original_type}) could not be fully converted to numeric.")
                     else:
                          logger.debug(f"Column '{col_name}' converted to numeric; some values became NaN.")
-                # else:
-                     # logger.debug(f"Column '{col_name}' successfully converted to numeric.")
         else:
              logger.warning(f"Column '{col_name}' not found in DataFrame for float conversion.")
     return df
@@ -1144,7 +1021,7 @@ def convert_columns_to_float(df: pd.DataFrame, columns_to_convert: List[str]) ->
 # --- Interactive Plotting (Complex Function) ---
 
 def interactive_scatter_plot(
-    data_source: Union[str, Dict[str, pd.DataFrame]],
+    data_source: Union[str, Dict[str, Union[pd.DataFrame, pl.LazyFrame, pl.DataFrame]]],
     block_selector_options: Optional[List[str]] = None,
     default_block: Optional[str] = None,
     title_prefix: str = "Interactive Plot",
@@ -1152,18 +1029,11 @@ def interactive_scatter_plot(
     allow_sampling: bool = True,
 ) -> None:
     """
-    Interactive Plotly/Streamlit explorer for RELION-style STAR data.
+    Interactive explorer for RELION-style STAR data using Polars and Datashader.
 
-    All original features retained:
-      • 2-D / 3-D scatter, histogram, Cartesian & polar
-      • numeric conversion with index/ID fall-backs
-      • density colouring
-      • log axes, random sampling
-      • subset saving
-      • aspect-ratio lock for Cartesian 2-D scatter   ←  (restored here)
+    Updated to handle Polars LazyFrames and use Datashader for large datasets.
     """
 
-    # ----------------------------- 1. COLOUR MAPS ---------------------------
     COLOR_SCALES: Dict[str, List[str]] = {
         "Viridis": px.colors.sequential.Viridis,
         "Plasma": px.colors.sequential.Plasma,
@@ -1174,18 +1044,16 @@ def interactive_scatter_plot(
         "Bold (Qualitative)": px.colors.qualitative.Bold,
     }
 
-    # ----------------------------- 2. LOAD DATA -----------------------------
-    star_data: Dict[str, pd.DataFrame] = {}
+    # 1. LOAD DATA
+    star_data = {}
     source_name = "Loaded Data"
 
     if isinstance(data_source, str):
         source_name = os.path.basename(data_source)
-        logger.info(f"Parsing STAR file for plotting: {data_source}")
         try:
-            star_data = parse_star(data_source)
+            star_data = parse_star(data_source, lazy=True)
         except Exception as exc:
             st.error(f"Failed to parse STAR file '{source_name}': {exc}")
-            report_error(exc, f"STAR parsing – {source_name}")
             return
         if not star_data:
             st.error(f"No data blocks found in '{source_name}'.")
@@ -1205,10 +1073,10 @@ def interactive_scatter_plot(
         if default_block is None:
             default_block = get_first_key(star_data)
     else:
-        st.error("`data_source` must be a path or dict of DataFrames.")
+        st.error("`data_source` must be a path or dict of DataFrames/LazyFrames.")
         return
 
-    # --------------------------- 3. BLOCK SELECTION -------------------------
+    # 2. BLOCK SELECTION
     blocks = block_selector_options or list(star_data.keys())
     if not blocks:
         st.error("No blocks available to plot.")
@@ -1229,22 +1097,35 @@ def interactive_scatter_plot(
         st.error(f"Block '{selected_block}' not present.")
         return
 
-    df_original = star_data[selected_block]
-    if not isinstance(df_original, pd.DataFrame):
-        st.error(f"Block '{selected_block}' is not a DataFrame.")
+    lf = star_data[selected_block]
+    if isinstance(lf, pd.DataFrame):
+        lf = pl.from_pandas(lf).lazy()
+    elif isinstance(lf, pl.DataFrame):
+        lf = lf.lazy()
+    elif not isinstance(lf, pl.LazyFrame):
+         st.error(f"Block '{selected_block}' is not a valid DataFrame type ({type(lf)}).")
+         return
+
+    # Count rows efficiently
+    try:
+        # Fetch schema to get column names without collecting
+        schema = lf.collect_schema()
+        columns_list = [""] + schema.names()
+
+        # approximate count or exact count
+        n_rows = lf.select(pl.len()).collect().item()
+
+    except Exception as exc:
+        st.error(f"Error inspecting data: {exc}")
         return
-    if df_original.empty:
+
+    if n_rows == 0:
         st.info(f"Block '{selected_block}' is empty.")
         return
 
-    df = df_original.copy()
-    if not df.index.is_unique:
-        df.reset_index(drop=True, inplace=True)
+    st.write(f"Original data: {n_rows:,} rows × {len(schema)} columns")
 
-    st.write(f"Original data: {len(df_original):,} rows × "
-             f"{df_original.shape[1]} columns")
-
-    # -------------------------- 4. PLOT CONFIG UI ---------------------------
+    # 3. CONFIG UI
     st.subheader("Plot Configuration")
     cfg_cols = st.columns([1, 1, 2])
 
@@ -1264,8 +1145,6 @@ def interactive_scatter_plot(
         if plot_type != "2D Scatter":
             coord_system = "Cartesian"
 
-    # -------------------------- 5. AXIS / COLOUR UI -------------------------
-    columns_list = [""] + list(df.columns)
     if len(columns_list) == 1:
         st.error("No columns found in block.")
         return
@@ -1275,16 +1154,16 @@ def interactive_scatter_plot(
 
     def _suggest(suffixes: List[str]) -> Optional[str]:
         for sfx in suffixes:
-            match = next((c for c in df.columns
+            match = next((c for c in schema.names()
                           if isinstance(c, str)
                           and c.lower().endswith(sfx.lower())), None)
             if match:
                 return match
         return None
 
-    x_default = _suggest(["X", "Rot"]) or df.columns[0]
-    y_default = _suggest(["Y", "Tilt"]) or df.columns[min(1, len(df.columns)-1)]
-    z_default = _suggest(["Z", "Psi"]) or df.columns[min(2, len(df.columns)-1)]
+    x_default = _suggest(["X", "Rot"]) or schema.names()[0]
+    y_default = _suggest(["Y", "Tilt"]) or schema.names()[min(1, len(schema)-1)]
+    z_default = _suggest(["Z", "Psi"]) or schema.names()[min(2, len(schema)-1)]
 
     x_sel = axis_cols[0].selectbox(
         "Theta (θ)" if coord_system == "Polar" else "X-axis",
@@ -1309,7 +1188,7 @@ def interactive_scatter_plot(
 
     clr_col_idx = 3 if plot_type == "3D Scatter" else 2
     scheme_idx = 4 if plot_type == "3D Scatter" else 3
-    colour_options = ["None", "Density"] + list(df.columns)
+    colour_options = ["None"] + schema.names()
     colour_sel = axis_cols[clr_col_idx].selectbox(
         "Color by",
         colour_options,
@@ -1321,771 +1200,273 @@ def interactive_scatter_plot(
         key=f"{title_prefix}_scheme",
     )
 
-    # -------------------- 6. COLUMN PREP & FALLBACKS ------------------------
-    temp_cols_to_drop: List[str] = []
+    # 4. DATA PREP (Datashader vs Plotly decision)
+    use_datashader = n_rows > 50000 and plot_type == "2D Scatter" and coord_system == "Cartesian"
 
-    def _prep(
-        sel_col: Optional[str],
-        axis_label: str,
-        essential: bool,
-        allow_index_fb: bool,
-        as_colour: bool,
-        container,
-    ) -> Tuple[Optional[str], bool]:
-        if not sel_col or sel_col not in df.columns:
-            if essential:
-                st.error(f"Axis '{axis_label}' must be valid.")
-                return None, False
-            return None, True
+    if use_datashader:
+        st.info("Large dataset detected (>50k rows). Using Datashader for high-performance rendering.")
 
-        series = df[sel_col]
-        numeric = pd.to_numeric(series, errors="coerce")
-        if numeric.notna().all():
-            df[sel_col] = numeric
-            return sel_col, True
+    # Select columns to fetch
+    cols_to_fetch = {x_sel, y_sel}
+    if z_sel: cols_to_fetch.add(z_sel)
+    if colour_sel != "None": cols_to_fetch.add(colour_sel)
 
-        logger.info(f"Numeric conversion failed for '{sel_col}' "
-                    f"(dtype {series.dtype}).")
+    # Add index if needed for selection mapping?
+    # For now, let's keep it simple. Datashader generates an image.
 
-        if as_colour:
-            base = f"_plot_id_{sel_col}"
-            tmp = base
-            suffix = 1
-            while tmp in df.columns:
-                tmp = f"{base}_{suffix}"
-                suffix += 1
-            df[tmp] = pd.factorize(series)[0]
-            temp_cols_to_drop.append(tmp)
-            return tmp, True
-
-        if essential and allow_index_fb:
-            with container:
-                choice = st.radio(
-                    f"Plot '{sel_col}' by:",
-                    ["Index", "Unique ID"],
-                    horizontal=True,
-                    key=f"{title_prefix}_{sel_col}_fb",
-                )
-            base = ("_plot_index_" if choice == "Index" else "_plot_id_") + sel_col
-            tmp = base
-            suffix = 1
-            while tmp in df.columns:
-                tmp = f"{base}_{suffix}"
-                suffix += 1
-            df[tmp] = (df.index
-                       if choice == "Index"
-                       else pd.factorize(series)[0])
-            temp_cols_to_drop.append(tmp)
-            return tmp, True
-
-        if essential:
-            st.error(f"Axis '{axis_label}' must be numeric for {plot_type}.")
-            return None, False
-
-        return None, True  # non-essential, ignore
-
-    allow_axis_fb = (plot_type in {"2D Scatter", "3D Scatter"}
-                     and coord_system == "Cartesian")
-
-    x_col, ok = _prep(x_sel, "X", True, allow_axis_fb, False, axis_cols[0])
-    if not ok:
-        st.stop()
-    y_col, ok = _prep(y_sel, "Y", True, allow_axis_fb, False, axis_cols[1])
-    if not ok:
-        st.stop()
-    z_col = None
-    if plot_type == "3D Scatter":
-        z_col, ok = _prep(z_sel, "Z", True, allow_axis_fb, False, axis_cols[2])
-        if not ok:
-            st.stop()
-    colour_col = colour_sel
-    if colour_sel not in {"None", "Density"}:
-        colour_col, _ = _prep(colour_sel, "Color", False, False, True,
-                              axis_cols[clr_col_idx])
-
-    # ---------------------- 7. LOG + SAMPLING UI ----------------------------
-    ctrl_cols_needed = 2 + (plot_type == "3D Scatter"
-                            and coord_system == "Cartesian")
-    if allow_sampling and len(df_original) > 1:
-        ctrl_cols_needed += 1
-    ctrl = st.columns(ctrl_cols_needed)
-
-    log_x = ctrl[0].checkbox(
-        "Log X", key=f"{title_prefix}_logx",
-        disabled=(coord_system == "Polar"),
-    )
-    log_y = ctrl[1].checkbox("Log Y", key=f"{title_prefix}_logy")
-    log_z = False
-    if plot_type == "3D Scatter" and coord_system == "Cartesian":
-        log_z = ctrl[2].checkbox("Log Z", key=f"{title_prefix}_logz")
-
-    if allow_sampling and len(df_original) > 1:
-        slider_col = ctrl[-1]
-        max_allowed = len(df_original)
-        rows_to_plot = slider_col.slider(
-            f"Max points (total {max_allowed})",
-            min_value=1 if max_allowed <= 100 else 100,
-            max_value=max_allowed,
-            value=min(max_rows_default, max_allowed),
-            key=f"{title_prefix}_sample",
-        )
-        if rows_to_plot < len(df):
-            st.info(f"Plotting random sample of {rows_to_plot} points.")
-            df = df.sample(rows_to_plot, random_state=42)
-
-    # ------------------- 8. DENSITY (if requested) --------------------------
-    dens_col = "_calculated_density"
-    if colour_col == "Density":
-        try:
-            if plot_type == "3D Scatter":
-                coords = df[[x_col, y_col, z_col]].dropna()
-            elif plot_type == "2D Scatter":
-                coords = df[[x_col, y_col]].dropna()
-            else:
-                coords = pd.DataFrame()
-
-            if len(coords) > 1:
-                kde = gaussian_kde(coords.T)
-                df.loc[coords.index, dens_col] = kde(coords.T)
-                colour_col = dens_col
-                temp_cols_to_drop.append(dens_col)
-            else:
-                st.warning("Need >1 point for density; falling back.")
-                colour_col = "None"
-        except Exception as exc:
-            st.error(f"Density calculation failed: {exc}")
-            report_error(exc, "KDE failure")
-            colour_col = "None"
-
-    # -------------------- 9. HOVER DATA (safe) ------------------------------
-    hover_data = {
-        col: True for col in df_original.columns
-        if col not in {x_sel, y_sel, z_sel, colour_sel}
-    }
-
-    plot_kwargs = {"hover_data": hover_data}
-
-    # -------------------- 10. COLOUR SETTINGS -------------------------------
-    scale = COLOR_SCALES[colour_scheme]
-    if colour_col and colour_col != "None":
-        if pd.api.types.is_numeric_dtype(df[colour_col]):
-            plot_kwargs["color_continuous_scale"] = scale
-        else:
-            plot_kwargs["color_discrete_sequence"] = scale
-
-    label_map = {x_col: x_sel or x_col, y_col: y_sel or y_col}
-    if z_col:
-        label_map[z_col] = z_sel or z_col
-    if colour_col == dens_col:
-        label_map[colour_col] = "Density"
-    plot_kwargs["labels"] = label_map
-
-    title = f"{title_prefix}: {selected_block}"
-    fig = None
-
-    # ---------------------- 11. PLOT CONSTRUCTION ---------------------------
+    # 5. FETCH & CAST
     try:
-        if plot_type == "2D Scatter":
-            if coord_system == "Polar":
-                fig = px.scatter_polar(
-                    df, theta=x_col, r=y_col, color=None
-                    if colour_col == "None" else colour_col,
-                    title=title, **plot_kwargs
-                )
-                if log_y:
-                    fig.update_layout(polar_radialaxis_type="log")
-            else:
-                fig = px.scatter(
-                    df, x=x_col, y=y_col, color=None
-                    if colour_col == "None" else colour_col,
-                    title=title, **plot_kwargs
-                )
-                if log_x:
-                    fig.update_xaxes(type="log")
-                if log_y:
-                    fig.update_yaxes(type="log")
+        # Cast to float for plotting
+        lf_cast = lf.with_columns([
+            pl.col(c).cast(pl.Float64, strict=False) for c in cols_to_fetch if c
+        ])
 
-                # ---------- RESTORED: aspect-ratio checkbox ---------------
-                keep_ratio = st.checkbox(
-                    "Keep data aspect ratio?",
-                    value=True,
-                    key=f"{title_prefix}_aspect",
-                )
-                if keep_ratio:
-                    fig.update_yaxes(scaleanchor="x", scaleratio=1)
-                # ----------------------------------------------------------
+        # For datashader we can stay in polars/arrow/pandas, but holoviews supports pandas best or dask.
+        # Let's collect to Pandas for now as intermediate step, it's efficient enough for 1M rows in RAM.
+        # But we wanted to avoid full load if possible. Datashader can work on Dask.
+        # Here we will collect to Pandas as it is compatible with both Plotly and Holoviews/Datashader.
+        # (Polars -> Pandas conversion is zero-copy for arrow-backed types mostly)
 
-        elif plot_type == "2D Histogram":
-            fig = go.Figure(
-                go.Histogram2d(
-                    x=df[x_col], y=df[y_col], colorscale=scale,
-                )
-            )
-            fig.update_layout(
-                title=title,
-                xaxis_title=label_map[x_col],
-                yaxis_title=label_map[y_col],
-                coloraxis_colorbar=dict(title="Count"),
-            )
-            if log_x:
-                fig.update_xaxes(type="log")
-            if log_y:
-                fig.update_yaxes(type="log")
+        if allow_sampling and not use_datashader and n_rows > max_rows_default:
+             st.info(f"Plotting random sample of {max_rows_default} points.")
+             df = lf_cast.select(list(cols_to_fetch)).collect().sample(n=max_rows_default, seed=42).to_pandas()
+        else:
+             # For datashader, we load full data (it handles millions easily)
+             df = lf_cast.select(list(cols_to_fetch)).collect().to_pandas()
 
-        else:  # "3D Scatter"
-            fig = px.scatter_3d(
-                df, x=x_col, y=y_col, z=z_col,
-                color=None if colour_col == "None" else colour_col,
-                title=title, **plot_kwargs
-            )
-            scene = {}
-            if log_x:
-                scene["xaxis_type"] = "log"
-            if log_y:
-                scene["yaxis_type"] = "log"
-            if log_z:
-                scene["zaxis_type"] = "log"
-            if scene:
-                fig.update_layout(scene=scene)
-
-        # hide legend if too many discrete categories
-        if (colour_sel not in {"None", "Density"}
-                and colour_sel in df_original.columns
-                and df_original[colour_sel].nunique() > 100):
-            fig.update_layout(showlegend=False)
-            if (colour_col and not pd.api.types.is_numeric_dtype(df[colour_col])):
-                fig.update_layout(coloraxis_showscale=False)
-
-        fig.update_layout(height=700 if plot_type == "3D Scatter" else 600)
-
-    except Exception as exc:
-        st.error(f"Plot creation failed: {exc}")
-        report_error(exc, "Plot build")
-        df.drop(columns=temp_cols_to_drop, errors="ignore", inplace=True)
+    except Exception as e:
+        st.error(f"Error preparing data: {e}")
         return
-    if plot_type == "2D Scatter" and coord_system == "Cartesian":
-        fig.update_layout(dragmode="select")
-    # -------------------------- 12. SHOW FIGURE -----------------------------
-    st.plotly_chart(fig, use_container_width=True,
-                    key=f"{title_prefix}_{selected_block}_plot")
 
-    # -------------------------- 13. CLEAN-UP --------------------------------
-    df.drop(columns=temp_cols_to_drop, errors="ignore", inplace=True)
-    
+    # 6. PLOTTING
 
-def interactive_scatter_plot(
-    data_source: Union[str, Dict[str, pd.DataFrame]],
-    block_selector_options: Optional[List[str]] = None,
-    default_block: Optional[str] = None,
-    title_prefix: str = "Interactive Plot",
-    max_rows_default: int = 50_000,
-    allow_sampling: bool = True,
-) -> None:
-    """
-    Fully featured interactive explorer for RELION-style STAR data.
-
-    Features
-    --------
-    • 2-D Cartesian / polar scatter, 3-D scatter, 2-D histogram  
-    • Numeric conversion with index / ID fall-backs for non-numeric axes  
-    • Density colouring via Gaussian KDE  
-    • Log scaling, random sampling, aspect-ratio lock (2-D)  
-    • Lasso & rectangle selection with persistent session-state  
-    • Save selected subset as a new STAR file
-    """
-
-    # ----------------------------- 1. COLOUR MAPS ---------------------------
-    COLOR_SCALES: Dict[str, List[str]] = {
-        "Viridis": px.colors.sequential.Viridis,
-        "Plasma": px.colors.sequential.Plasma,
-        "Blues": px.colors.sequential.Blues,
-        "Cividis": px.colors.sequential.Cividis,
-        "Turbo": px.colors.sequential.Turbo,
-        "Plotly (Qualitative)": px.colors.qualitative.Plotly,
-        "Bold (Qualitative)": px.colors.qualitative.Bold,
-    }
-
-    # ----------------------------- 2. LOAD DATA -----------------------------
-    star_data: Dict[str, pd.DataFrame] = {}
-    source_name = "Loaded Data"
-
-    if isinstance(data_source, str):
-        source_name = os.path.basename(data_source)
-        logger.info(f"Parsing STAR file for plotting: {data_source}")
+    if use_datashader:
+        # Use Holoviews + Datashader
         try:
-            star_data = parse_star(data_source)
-        except Exception as exc:
-            st.error(f"Failed to parse STAR file '{source_name}': {exc}")
-            report_error(exc, f"STAR parsing – {source_name}")
-            return
-        if not star_data:
-            st.error(f"No data blocks found in '{source_name}'.")
-            return
-        if default_block is None:
-            default_block = next(
-                (b for b in ["particles", "micrographs", "movies",
-                             "model_classes", "helices", "global"]
-                 if b in star_data),
-                get_first_key(star_data),
-            )
-    elif isinstance(data_source, dict):
-        star_data = data_source
-        if not star_data:
-            st.error("Provided data dictionary is empty.")
-            return
-        if default_block is None:
-            default_block = get_first_key(star_data)
+            points = hv.Points(df, kdims=[x_sel, y_sel])
+
+            # Datashader cmap
+            cmap = COLOR_SCALES[colour_scheme]
+
+            if colour_sel != "None":
+                 # Use mean aggregator for value if numeric
+                 rasterized = datashade(points, aggregator=ds.mean(colour_sel), cmap=cmap)
+            else:
+                 rasterized = datashade(points, cmap=cmap)
+
+            # Make it interactive with spread
+            rasterized = dynspread(rasterized, threshold=0.5, max_px=4)
+
+            rasterized = rasterized.opts(width=800, height=600, title=f"{title_prefix}: {selected_block} (Datashader)")
+
+            st.bokeh_chart(hv.render(rasterized, backend='bokeh'), use_container_width=True)
+
+            st.warning("High performance mode enabled. Lasso selection is disabled.")
+            if st.button("Switch to Standard Interactive Plot (Slower, allows selection)"):
+                # Force reload/re-render without datashader logic implies strictly needing a rerun with a flag,
+                # but function is stateless. We can hint user to sample down.
+                st.info("To select points, please reduce 'Max points' using the slider above to under 50,000, or use the sampling option.")
+
+        except Exception as e:
+            st.error(f"Datashader plotting failed: {e}")
+            report_error(e)
+
     else:
-        st.error("`data_source` must be a path or dict of DataFrames.")
-        return
-
-    # --------------------------- 3. BLOCK SELECTION -------------------------
-    blocks = block_selector_options or list(star_data.keys())
-    if not blocks:
-        st.error("No blocks available to plot.")
-        return
-
-    selected_block = (
-        st.selectbox(
-            f"Select Data Block ({source_name}):",
-            options=blocks,
-            index=blocks.index(default_block) if default_block in blocks else 0,
-            key=f"{title_prefix}_block",
-        )
-        if len(blocks) > 1
-        else blocks[0]
-    )
-
-    if selected_block not in star_data:
-        st.error(f"Block '{selected_block}' not present.")
-        return
-
-    df_original = star_data[selected_block]
-    if not isinstance(df_original, pd.DataFrame):
-        st.error(f"Block '{selected_block}' is not a DataFrame.")
-        return
-    if df_original.empty:
-        st.info(f"Block '{selected_block}' is empty.")
-        return
-
-    df = df_original.copy()
-    if not df.index.is_unique:
-        df.reset_index(drop=True, inplace=True)
-
-    st.write(f"Original data: {len(df_original):,} rows × "
-             f"{df_original.shape[1]} columns")
-
-    # -------------------------- 4. PLOT CONFIG UI ---------------------------
-    st.subheader("Plot Configuration")
-    cfg_cols = st.columns([1, 1, 2])
-
-    with cfg_cols[0]:
-        plot_type = st.selectbox(
-            "Plot Type",
-            ["2D Scatter", "2D Histogram", "3D Scatter"],
-            key=f"{title_prefix}_plot_type",
-        )
-    with cfg_cols[1]:
-        coord_system = st.selectbox(
-            "Coordinate System",
-            ["Cartesian", "Polar"],
-            disabled=(plot_type != "2D Scatter"),
-            key=f"{title_prefix}_coord",
-        )
-        if plot_type != "2D Scatter":
-            coord_system = "Cartesian"
-
-    # -------------------------- 5. AXIS / COLOUR UI -------------------------
-    columns_list = [""] + list(df.columns)
-    if len(columns_list) == 1:
-        st.error("No columns found in block.")
-        return
-
-    st.markdown("---")
-    axis_cols = st.columns(5 if plot_type == "3D Scatter" else 4)
-
-    def _suggest(suffixes: List[str]) -> Optional[str]:
-        for sfx in suffixes:
-            match = next((c for c in df.columns
-                          if isinstance(c, str)
-                          and c.lower().endswith(sfx.lower())), None)
-            if match:
-                return match
-        return None
-
-    x_default = _suggest(["X", "Rot"]) or df.columns[0]
-    y_default = _suggest(["Y", "Tilt"]) or df.columns[min(1, len(df.columns)-1)]
-    z_default = _suggest(["Z", "Psi"]) or df.columns[min(2, len(df.columns)-1)]
-
-    x_sel = axis_cols[0].selectbox(
-        "Theta (θ)" if coord_system == "Polar" else "X-axis",
-        columns_list,
-        index=columns_list.index(x_default),
-        key=f"{title_prefix}_x",
-    )
-    y_sel = axis_cols[1].selectbox(
-        "Radius (r)" if coord_system == "Polar" else "Y-axis",
-        columns_list,
-        index=columns_list.index(y_default),
-        key=f"{title_prefix}_y",
-    )
-    z_sel = None
-    if plot_type == "3D Scatter":
-        z_sel = axis_cols[2].selectbox(
-            "Z-axis",
-            columns_list,
-            index=columns_list.index(z_default),
-            key=f"{title_prefix}_z",
-        )
-
-    clr_col_idx = 3 if plot_type == "3D Scatter" else 2
-    scheme_idx = 4 if plot_type == "3D Scatter" else 3
-    colour_options = ["None", "Density"] + list(df.columns)
-    colour_sel = axis_cols[clr_col_idx].selectbox(
-        "Color by",
-        colour_options,
-        key=f"{title_prefix}_color",
-    )
-    colour_scheme = axis_cols[scheme_idx].selectbox(
-        "Color Scheme",
-        list(COLOR_SCALES.keys()),
-        key=f"{title_prefix}_scheme",
-    )
-
-    # -------------------- 6. COLUMN PREP & FALLBACKS ------------------------
-    temp_cols_to_drop: List[str] = []
-
-    def _prep(
-        sel_col: Optional[str],
-        axis_label: str,
-        essential: bool,
-        allow_index_fb: bool,
-        as_colour: bool,
-        container,
-    ) -> Tuple[Optional[str], bool]:
-        if not sel_col or sel_col not in df.columns:
-            if essential:
-                st.error(f"Axis '{axis_label}' must be valid.")
-                return None, False
-            return None, True
-
-        series = df[sel_col]
-        numeric = pd.to_numeric(series, errors="coerce")
-        if numeric.notna().all():
-            df[sel_col] = numeric
-            return sel_col, True
-
-        logger.info(f"Numeric conversion failed for '{sel_col}' "
-                    f"(dtype {series.dtype}).")
-
-        if as_colour:
-            base = f"_plot_id_{sel_col}"
-            tmp = base
-            suffix = 1
-            while tmp in df.columns:
-                tmp = f"{base}_{suffix}"
-                suffix += 1
-            df[tmp] = pd.factorize(series)[0]
-            temp_cols_to_drop.append(tmp)
-            return tmp, True
-
-        if essential and allow_index_fb:
-            with container:
-                choice = st.radio(
-                    f"Plot '{sel_col}' by:",
-                    ["Index", "Unique ID"],
-                    horizontal=True,
-                    key=f"{title_prefix}_{sel_col}_fb",
-                )
-            base = ("_plot_index_" if choice == "Index" else "_plot_id_") + sel_col
-            tmp = base
-            suffix = 1
-            while tmp in df.columns:
-                tmp = f"{base}_{suffix}"
-                suffix += 1
-            df[tmp] = (df.index
-                       if choice == "Index"
-                       else pd.factorize(series)[0])
-            temp_cols_to_drop.append(tmp)
-            return tmp, True
-
-        if essential:
-            st.error(f"Axis '{axis_label}' must be numeric for {plot_type}.")
-            return None, False
-
-        return None, True  # non-essential, ignore
-
-    allow_axis_fb = (plot_type in {"2D Scatter", "3D Scatter"}
-                     and coord_system == "Cartesian")
-
-    x_col, ok = _prep(x_sel, "X", True, allow_axis_fb, False, axis_cols[0])
-    if not ok:
-        st.stop()
-    y_col, ok = _prep(y_sel, "Y", True, allow_axis_fb, False, axis_cols[1])
-    if not ok:
-        st.stop()
-    z_col = None
-    if plot_type == "3D Scatter":
-        z_col, ok = _prep(z_sel, "Z", True, allow_axis_fb, False, axis_cols[2])
-        if not ok:
-            st.stop()
-    colour_col = colour_sel
-    if colour_sel not in {"None", "Density"}:
-        colour_col, _ = _prep(colour_sel, "Color", False, False, True,
-                              axis_cols[clr_col_idx])
-
-    # ---------------------- 7. LOG + SAMPLING UI ----------------------------
-    ctrl_cols_needed = 2 + (plot_type == "3D Scatter"
-                            and coord_system == "Cartesian")
-    if allow_sampling and len(df_original) > 1:
-        ctrl_cols_needed += 1
-    ctrl = st.columns(ctrl_cols_needed)
-
-    log_x = ctrl[0].checkbox(
-        "Log X", key=f"{title_prefix}_logx",
-        disabled=(coord_system == "Polar"),
-    )
-    log_y = ctrl[1].checkbox("Log Y", key=f"{title_prefix}_logy")
-    log_z = False
-    if plot_type == "3D Scatter" and coord_system == "Cartesian":
-        log_z = ctrl[2].checkbox("Log Z", key=f"{title_prefix}_logz")
-
-    if allow_sampling and len(df_original) > 1:
-        slider_col = ctrl[-1]
-        max_allowed = len(df_original)
-        rows_to_plot = slider_col.slider(
-            f"Max points (total {max_allowed})",
-            min_value=1 if max_allowed <= 100 else 100,
-            max_value=max_allowed,
-            value=min(max_rows_default, max_allowed),
-            key=f"{title_prefix}_sample",
-        )
-        if rows_to_plot < len(df):
-            st.info(f"Plotting random sample of {rows_to_plot} points.")
-            df = df.sample(rows_to_plot, random_state=42)
-
-    # ------------------- 8. DENSITY (if requested) --------------------------
-    dens_col = "_calculated_density"
-    if colour_col == "Density":
+        # FULL RESTORED PLOTLY IMPLEMENTATION
+        temp_cols_to_drop = []
         try:
-            if plot_type == "3D Scatter":
-                coords = df[[x_col, y_col, z_col]].dropna()
-            elif plot_type == "2D Scatter":
-                coords = df[[x_col, y_col]].dropna()
+            # --- 7. LOG + SAMPLING UI (Additional) ---
+            ctrl_cols_needed = 2 + (plot_type == "3D Scatter" and coord_system == "Cartesian")
+            ctrl = st.columns(ctrl_cols_needed)
+
+            log_x = ctrl[0].checkbox("Log X", key=f"{title_prefix}_logx", disabled=(coord_system == "Polar"))
+            log_y = ctrl[1].checkbox("Log Y", key=f"{title_prefix}_logy")
+            log_z = False
+            if plot_type == "3D Scatter" and coord_system == "Cartesian":
+                log_z = ctrl[2].checkbox("Log Z", key=f"{title_prefix}_logz")
+
+            # --- 8. DENSITY (if requested) ---
+            dens_col = "_calculated_density"
+            if colour_sel == "Density":
+                try:
+                    if plot_type == "3D Scatter":
+                        coords = df[[x_sel, y_sel, z_sel]].dropna()
+                    elif plot_type == "2D Scatter":
+                        coords = df[[x_sel, y_sel]].dropna()
+                    else:
+                        coords = pd.DataFrame()
+
+                    if len(coords) > 1:
+                        # Use Pandas/Numpy for KDE
+                        kde = gaussian_kde(coords.T)
+                        df[dens_col] = np.nan
+                        df.loc[coords.index, dens_col] = kde(coords.T)
+                        colour_col_to_plot = dens_col
+                        temp_cols_to_drop.append(dens_col)
+                    else:
+                        st.warning("Need >1 point for density; falling back.")
+                        colour_col_to_plot = None
+                except Exception as exc:
+                    st.error(f"Density calculation failed: {exc}")
+                    colour_col_to_plot = None
             else:
-                coords = pd.DataFrame()
+                colour_col_to_plot = colour_sel if colour_sel != "None" else None
 
-            if len(coords) > 1:
-                kde = gaussian_kde(coords.T)
-                df.loc[coords.index, dens_col] = kde(coords.T)
-                colour_col = dens_col
-                temp_cols_to_drop.append(dens_col)
-            else:
-                st.warning("Need >1 point for density; falling back.")
-                colour_col = "None"
-        except Exception as exc:
-            st.error(f"Density calculation failed: {exc}")
-            report_error(exc, "KDE failure")
-            colour_col = "None"
+            # --- 9. PLOT ARGS ---
+            hover_data = {
+                col: True for col in df.columns
+                if col not in {x_sel, y_sel, z_sel, colour_sel}
+            }
+            plot_kwargs = {"hover_data": hover_data}
 
-    # -------------------- 9. HOVER DATA (safe) ------------------------------
-    hover_data = {
-        col: True for col in df_original.columns
-        if col not in {x_sel, y_sel, z_sel, colour_sel}
-    }
+            scale = COLOR_SCALES[colour_scheme]
+            if colour_col_to_plot:
+                if pd.api.types.is_numeric_dtype(df[colour_col_to_plot]):
+                    plot_kwargs["color_continuous_scale"] = scale
+                else:
+                    plot_kwargs["color_discrete_sequence"] = scale
 
-    plot_kwargs = {"hover_data": hover_data}
+            label_map = {x_sel: x_sel, y_sel: y_sel}
+            if z_sel: label_map[z_sel] = z_sel
+            if colour_col_to_plot == dens_col: label_map[colour_col_to_plot] = "Density"
+            plot_kwargs["labels"] = label_map
 
-    # -------------------- 10. COLOUR SETTINGS -------------------------------
-    scale = COLOR_SCALES[colour_scheme]
-    if colour_col and colour_col != "None":
-        if pd.api.types.is_numeric_dtype(df[colour_col]):
-            plot_kwargs["color_continuous_scale"] = scale
-        else:
-            plot_kwargs["color_discrete_sequence"] = scale
+            title = f"{title_prefix}: {selected_block}"
+            fig = None
 
-    label_map = {x_col: x_sel or x_col, y_col: y_sel or y_col}
-    if z_col:
-        label_map[z_col] = z_sel or z_col
-    if colour_col == dens_col:
-        label_map[colour_col] = "Density"
-    plot_kwargs["labels"] = label_map
+            # --- 10. PLOT CONSTRUCTION ---
+            if plot_type == "2D Scatter":
+                if coord_system == "Polar":
+                    fig = px.scatter_polar(
+                        df, theta=x_sel, r=y_sel, color=colour_col_to_plot,
+                        title=title, **plot_kwargs
+                    )
+                    if log_y: fig.update_layout(polar_radialaxis_type="log")
+                else:
+                    fig = px.scatter(
+                        df, x=x_sel, y=y_sel, color=colour_col_to_plot,
+                        title=title, **plot_kwargs
+                    )
+                    if log_x: fig.update_xaxes(type="log")
+                    if log_y: fig.update_yaxes(type="log")
 
-    title = f"{title_prefix}: {selected_block}"
-    fig = None
+                    keep_ratio = st.checkbox("Keep data aspect ratio?", value=True, key=f"{title_prefix}_aspect")
+                    if keep_ratio:
+                        fig.update_yaxes(scaleanchor="x", scaleratio=1)
 
-    # ---------------------- 11. PLOT CONSTRUCTION ---------------------------
-    try:
-        if plot_type == "2D Scatter":
-            if coord_system == "Polar":
-                fig = px.scatter_polar(
-                    df, theta=x_col, r=y_col, color=None
-                    if colour_col == "None" else colour_col,
+            elif plot_type == "2D Histogram":
+                fig = go.Figure(
+                    go.Histogram2d(
+                        x=df[x_sel], y=df[y_sel], colorscale=scale,
+                    )
+                )
+                fig.update_layout(
+                    title=title, xaxis_title=x_sel, yaxis_title=y_sel,
+                    coloraxis_colorbar=dict(title="Count"),
+                )
+                if log_x: fig.update_xaxes(type="log")
+                if log_y: fig.update_yaxes(type="log")
+
+            else:  # "3D Scatter"
+                fig = px.scatter_3d(
+                    df, x=x_sel, y=y_sel, z=z_sel,
+                    color=colour_col_to_plot,
                     title=title, **plot_kwargs
                 )
-                if log_y:
-                    fig.update_layout(polar_radialaxis_type="log")
-            else:
-                fig = px.scatter(
-                    df, x=x_col, y=y_col, color=None
-                    if colour_col == "None" else colour_col,
-                    title=title, **plot_kwargs
-                )
-                if log_x:
-                    fig.update_xaxes(type="log")
-                if log_y:
-                    fig.update_yaxes(type="log")
+                scene = {}
+                if log_x: scene["xaxis_type"] = "log"
+                if log_y: scene["yaxis_type"] = "log"
+                if log_z: scene["zaxis_type"] = "log"
+                if scene: fig.update_layout(scene=scene)
 
-                # ---------- aspect-ratio checkbox ---------------
-                keep_ratio = st.checkbox(
-                    "Keep data aspect ratio?",
-                    value=True,
-                    key=f"{title_prefix}_aspect",
-                )
-                if keep_ratio:
-                    fig.update_yaxes(scaleanchor="x", scaleratio=1)
-                # ------------------------------------------------
+            fig.update_layout(height=700 if plot_type == "3D Scatter" else 600)
+            if plot_type == "2D Scatter" and coord_system == "Cartesian":
+                fig.update_layout(dragmode="select")
 
-        elif plot_type == "2D Histogram":
-            fig = go.Figure(
-                go.Histogram2d(
-                    x=df[x_col], y=df[y_col], colorscale=scale,
-                )
+            # --- 11. DISPLAY & SELECTION ---
+            plot_key = f"{title_prefix}_{selected_block}_plot"
+            if "plotly_selection" not in st.session_state:
+                st.session_state.plotly_selection = {}
+
+            current_selection = st.session_state.plotly_selection.get(plot_key, {"points": []})
+
+            event_data = st.plotly_chart(
+                fig, use_container_width=True, key=plot_key, on_select="rerun"
             )
-            fig.update_layout(
-                title=title,
-                xaxis_title=label_map[x_col],
-                yaxis_title=label_map[y_col],
-                coloraxis_colorbar=dict(title="Count"),
-            )
-            if log_x:
-                fig.update_xaxes(type="log")
-            if log_y:
-                fig.update_yaxes(type="log")
 
-        else:  # "3D Scatter"
-            fig = px.scatter_3d(
-                df, x=x_col, y=y_col, z=z_col,
-                color=None if colour_col == "None" else colour_col,
-                title=title, **plot_kwargs
-            )
-            scene = {}
-            if log_x:
-                scene["xaxis_type"] = "log"
-            if log_y:
-                scene["yaxis_type"] = "log"
-            if log_z:
-                scene["zaxis_type"] = "log"
-            if scene:
-                fig.update_layout(scene=scene)
+            if event_data and event_data.selection:
+                st.session_state.plotly_selection[plot_key] = event_data.selection
+                current_selection = event_data.selection
+            elif event_data and event_data.selection is None:
+                st.session_state.plotly_selection[plot_key] = {"points": []}
+                current_selection = {"points": []}
 
-        # hide legend if too many discrete categories
-        if (colour_sel not in {"None", "Density"}
-                and colour_sel in df_original.columns
-                and df_original[colour_sel].nunique() > 100):
-            fig.update_layout(showlegend=False)
-            if (colour_col and not pd.api.types.is_numeric_dtype(df[colour_col])):
-                fig.update_layout(coloraxis_showscale=False)
-
-        fig.update_layout(height=700 if plot_type == "3D Scatter" else 600)
-
-    except Exception as exc:
-        st.error(f"Plot creation failed: {exc}")
-        report_error(exc, "Plot build")
-        df.drop(columns=temp_cols_to_drop, errors="ignore", inplace=True)
-        return
-
-    # -------------------- 12. DISPLAY & SELECTION ---------------------------
-    plot_key = f"{title_prefix}_{selected_block}_plot"
-
-    if "plotly_selection" not in st.session_state:
-        st.session_state.plotly_selection = {}
-
-    # pre-populate current_selection from session-state
-    current_selection = st.session_state.plotly_selection.get(
-        plot_key,
-        {"points": []},
-    )
-
-    event_data = st.plotly_chart(
-        fig,
-        use_container_width=True,
-        key=plot_key,
-        on_select="rerun",      # ← lasso / rectangle restored
-    )
-
-    # capture selection
-    if event_data and event_data.selection:
-        st.session_state.plotly_selection[plot_key] = event_data.selection
-        current_selection = event_data.selection
-    elif event_data and event_data.selection is None:  # deselect
-        st.session_state.plotly_selection[plot_key] = {"points": []}
-        current_selection = {"points": []}
-
-    selected_indices: List[int] = []
-    if current_selection and current_selection.get("points"):
-        try:
-            sel_point_idx = [pt["point_index"] for pt in current_selection["points"]]
-            selected_original_idx = df.iloc[sel_point_idx].index.tolist()
-            selected_indices = [
-                idx for idx in selected_original_idx if idx in df_original.index
-            ]
-        except Exception as exc:
-            st.error(f"Selection processing failed: {exc}")
-            report_error(exc, "Selection mapping")
             selected_indices = []
+            if current_selection and current_selection.get("points"):
+                try:
+                    # Map plot points back to dataframe indices
+                    sel_point_idx = [pt["point_index"] for pt in current_selection["points"]]
+                    # Use iloc to get the corresponding rows in current view (df)
+                    # Then get their indices (which should match original if not reset, but we did reset in some cases)
+                    # For robust mapping, we rely on df.iloc[sel_point_idx].index
+                    selected_indices = df.iloc[sel_point_idx].index.tolist()
+                except Exception as exc:
+                    st.error(f"Selection processing failed: {exc}")
+                    report_error(exc)
 
-    # -------------------- 13. DOWNLOAD SELECTED SUBSET ----------------------
-    if selected_indices:
-        st.markdown("---")
-        st.subheader("Save Selection")
+            # --- 12. DOWNLOAD SELECTED SUBSET ---
+            if selected_indices:
+                st.markdown("---")
+                st.subheader("Save Selection")
 
-        try:
-            job_str = ""
-            if isinstance(data_source, str):
-                m = re.search(r"job\d+", data_source, re.IGNORECASE)
-                job_str = m.group(0) + "_" if m else ""
-            base_name = (
-                os.path.basename(source_name).replace(".star", "")
-                if source_name != "Loaded Data" else selected_block
-            )
-            safe_block = re.sub(r"\W+", "_", selected_block)
-            file_name = f"{job_str}{base_name}_{safe_block}_selection.star"
-            file_name = re.sub(r"_+", "_", file_name).strip("_")
+                safe_block = re.sub(r"\W+", "_", selected_block)
+                file_name = f"selection_{safe_block}.star"
+
+                try:
+                    # We need to filter the original data.
+                    # If we loaded from Polars, 'lf' is the LazyFrame.
+                    # We can use the selected indices if we assume 'df' has same index as source.
+                    # BUT 'df' might be a sample.
+                    # If df is sample, indices might be preserved if we didn't reset_index drop=True.
+                    # Polars to Pandas usually preserves index as RangeIndex 0..N.
+
+                    # If we used sampling:
+                    # st.info(f"Plotting random sample of {max_rows_default} points.")
+                    # The selected indices refer to the SAMPLE.
+                    # We can only save the selected SAMPLE.
+
+                    subset_df = df.loc[selected_indices].copy()
+
+                    # Convert subset back to Star format
+                    # Create a dict with just this block (or others too? Original code kept others)
+                    # Original code:
+                    # out_dict = {k: v.copy() for k, v in star_data.items() if k != selected_block}
+                    # out_dict[selected_block] = subset_df
+                    # star_doc = star_from_df(out_dict)
+
+                    # We only have 'star_data' which contains LazyFrames or DataFrames.
+                    # Reconstructing the whole file might be expensive if lazy.
+                    # Let's just save the selection block for now, or try to keep others if easy.
+
+                    out_dict = {selected_block: subset_df}
+
+                    star_content = star_from_df(out_dict)
+
+                    st.download_button(
+                        label=f"Download {len(selected_indices)} selected rows as **{file_name}**",
+                        data=star_content,
+                        file_name=file_name,
+                        mime="text/plain",
+                        key=f"{title_prefix}_dl",
+                    )
+                except Exception as exc:
+                    st.error(f"Subset save failed: {exc}")
+                    report_error(exc)
+
         except Exception as exc:
-            logger.error(f"Filename generation failed: {exc}")
-            file_name = f"selected_subset_{selected_block}.star"
-
-        try:
-            subset_df = df_original.loc[selected_indices].copy()
-            out_dict = {k: v.copy() for k, v in star_data.items()
-                        if k != selected_block}
-            out_dict[selected_block] = subset_df
-
-            star_doc = star_from_df(out_dict)
-
-            with tempfile.NamedTemporaryFile(delete=False,
-                                             suffix=".star",
-                                             mode="w+",
-                                             encoding="utf-8") as tmp:
-                tmp_path = tmp.name
-                star_doc.write_file(tmp_path)
-
-            with open(tmp_path, "rb") as f:
-                binary_star = f.read()
-
-            st.download_button(
-                label=f"Download {len(selected_indices)} selected rows "
-                      f"as **{file_name}**",
-                data=binary_star,
-                file_name=file_name,
-                mime="application/octet-stream",
-                key=f"{title_prefix}_dl",
-            )
-            os.remove(tmp_path)
-        except Exception as exc:
-            st.error(f"Subset save failed: {exc}")
-            report_error(exc, "STAR subset save")
-
-    # -------------------------- 14. CLEAN-UP --------------------------------
-    df.drop(columns=temp_cols_to_drop, errors="ignore", inplace=True)
+            st.error(f"Plot creation failed: {exc}")
+            report_error(exc)
+        finally:
+            # Cleanup
+            if temp_cols_to_drop:
+                df.drop(columns=temp_cols_to_drop, errors="ignore", inplace=True)

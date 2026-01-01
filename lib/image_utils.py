@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import mrcfile
 import numpy as np
 import pandas as pd
+import polars as pl
 import plotly.express as px
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
@@ -602,13 +603,26 @@ def process_coordinates(
             return filtered_picks
 
         star_data = parse_star(coord_path)
-        coords_df = get_values_from_first_key(
-            star_data
-        )  # Assumes first block has coords
+        coords_val = get_values_from_first_key(star_data) # Assumes first block has coords
 
-        if coords_df is None or coords_df.empty:
+        if coords_val is None:
             logger.warning(f"No coordinate data found in {coord_path}")
             return filtered_picks
+
+        # Convert to Pandas for compatibility with existing logic
+        if isinstance(coords_val, pl.LazyFrame):
+            coords_df = coords_val.collect().to_pandas()
+        elif isinstance(coords_val, pl.DataFrame):
+            coords_df = coords_val.to_pandas()
+        elif isinstance(coords_val, pd.DataFrame):
+            coords_df = coords_val
+        else:
+             logger.warning(f"Unknown dataframe type in process_coordinates: {type(coords_val)}")
+             return filtered_picks
+
+        if coords_df.empty:
+             logger.warning(f"Coordinate dataframe is empty in {coord_path}")
+             return filtered_picks
 
         fom_col = "_rlnAutopickFigureOfMerit"
         if fom_col not in coords_df.columns:
@@ -1276,7 +1290,17 @@ def micrograph_viewer(
                     display_picks = cfg["display_picks"]
                     if display_picks:
                         try:
-                            coords_df = get_values_from_first_key(parse_star(coord_full))
+                            coords_val = get_values_from_first_key(parse_star(coord_full))
+                            if isinstance(coords_val, pl.LazyFrame):
+                                coords_df = coords_val.collect().to_pandas()
+                            elif isinstance(coords_val, pl.DataFrame):
+                                coords_df = coords_val.to_pandas()
+                            elif isinstance(coords_val, pd.DataFrame):
+                                coords_df = coords_val
+                            elif coords_val is None:
+                                coords_df = pd.DataFrame()
+                            else:
+                                coords_df = pd.DataFrame()
                         except Exception as exc:
                             report_error("STAR parse error", exc)
                             st.error(f"Picks error: {exc}")
