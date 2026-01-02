@@ -266,12 +266,15 @@ def display_classes(
 
                      # Render image below checkbox
                      # Optimized: Convert Matplotlib figure to image array
-                     img_fig.canvas.draw()
-                     img_array = np.frombuffer(img_fig.canvas.tostring_rgb(), dtype=np.uint8)
-                     img_array = img_array.reshape(img_fig.canvas.get_width_height()[::-1] + (3,))
-
-                     st.image(img_array, use_container_width=True)
-                     plt.close(img_fig) # Explicitly close figure to save memory
+                     try:
+                         img_fig.canvas.draw()
+                         # Use buffer_rgba() as tostring_rgb() is removed in Matplotlib 3.8+
+                         width, height = img_fig.canvas.get_width_height()
+                         img_array = np.frombuffer(img_fig.canvas.buffer_rgba(), dtype=np.uint8).reshape(height, width, 4)
+                         # Use first 3 channels (RGB), ignoring Alpha
+                         st.image(img_array[:, :, :3], use_container_width=True)
+                     finally:
+                         plt.close(img_fig) # Explicitly close figure to save memory
 
                      # --- Update session state based on checkbox interaction ---
                      # This check runs *after* the checkbox is rendered and potentially interacted with
