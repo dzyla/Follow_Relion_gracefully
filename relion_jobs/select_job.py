@@ -235,7 +235,12 @@ def display_classes(
                  )
 
                  # Render image below checkbox
-                 st.pyplot(img_fig, use_container_width=True, clear_figure=True)
+                 # Optimized: Convert Matplotlib figure to image array
+                 img_fig.canvas.draw()
+                 img_array = np.frombuffer(img_fig.canvas.tostring_rgb(), dtype=np.uint8)
+                 img_array = img_array.reshape(img_fig.canvas.get_width_height()[::-1] + (3,))
+
+                 st.image(img_array, use_container_width=True)
                  plt.close(img_fig) # Explicitly close figure to save memory
 
                  # --- Update session state based on checkbox interaction ---

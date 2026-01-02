@@ -1,15 +1,15 @@
-# 
-#  ____        ___    ___                           ____            ___                            ____                                    ___          ___    ___                
-# /\  __\     /\_ \  /\_ \                         /\  _`\         /\_ \    __                    /\  _`\                                /'___\        /\_ \  /\_ \               
-# \ \ \_    __\//\ \ \//\ \     ___   __  __  __   \ \ \L\ \     __\//\ \  /\_\    ___     ___    \ \ \L\_\  _ __    __      ___     __ /\ \__/  __  __\//\ \ \//\ \    __  __    
-#  \ \  _\/ __`\\ \ \  \ \ \   / __`\/\ \/\ \/\ \   \ \ ,  /   /'__`\\ \ \ \/\ \  / __`\ /' _ `\   \ \ \L_L /\`'__\/'__`\   /'___\ /'__`\ \ ,__\/\ \/\ \ \ \ \  \ \ \  /\ \/\ \   
-#   \ \ \/\ \L\ \\_\ \_ \_\ \_/\ \L\ \ \ \_/ \_/ \   \ \ \\ \ /\  __/ \_\ \_\ \ \/\ \L\ \/\ \/\ \   \ \ \/, \ \ \//\ \L\.\_/\ \__//\  __/\ \ \_/\ \ \_\ \ \_\ \_ \_\ \_\ \ \_\ \  
-#    \ \_\ \____//\____\/\____\ \____/\ \___x___/'    \ \_\ \_\ \____\/\____\\ \_\ \____/\ \_\ \_\   \ \____/\ \_\\ \__/.\_\ \____\ \____\\ \_\  \ \____/ /\____\/\____\\/`____ \ 
+#
+#  ____        ___    ___                           ____            ___                            ____                                    ___          ___    ___
+# /\  __\     /\_ \  /\_ \                         /\  _`\         /\_ \    __                    /\  _`\                                /'___\        /\_ \  /\_ \
+# \ \ \_    __\//\ \ \//\ \     ___   __  __  __   \ \ \L\ \     __\//\ \  /\_\    ___     ___    \ \ \L\_\  _ __    __      ___     __ /\ \__/  __  __\//\ \ \//\ \    __  __
+#  \ \  _\/ __`\\ \ \  \ \ \   / __`\/\ \/\ \/\ \   \ \ ,  /   /'__`\\ \ \ \/\ \  / __`\ /' _ `\   \ \ \L_L /\`'__\/'__`\   /'___\ /'__`\ \ ,__\/\ \/\ \ \ \ \  \ \ \  /\ \/\ \
+#   \ \ \/\ \L\ \\_\ \_ \_\ \_/\ \L\ \ \ \_/ \_/ \   \ \ \\ \ /\  __/ \_\ \_\ \ \/\ \L\ \/\ \/\ \   \ \ \/, \ \ \//\ \L\.\_/\ \__//\  __/\ \ \_/\ \ \_\ \ \_\ \_ \_\ \_\ \ \_\ \
+#    \ \_\ \____//\____\/\____\ \____/\ \___x___/'    \ \_\ \_\ \____\/\____\\ \_\ \____/\ \_\ \_\   \ \____/\ \_\\ \__/.\_\ \____\ \____\\ \_\  \ \____/ /\____\/\____\\/`____ \
 #     \/_/\/___/ \/____/\/____/\/___/  \/__//__/       \/_/\/ /\/____/\/____/ \/_/\/___/  \/_/\/_/    \/___/  \/_/ \/__/\/_/\/____/\/____/ \/_/   \/___/  \/____/\/____/ `/___/> \
 #                                                                                                                                                                           \\___/
 # Follow Relion Gracefully (v6)
-# Developed by Dawid Zyla, La Jolla Institute for Immunology 
-# Non-Profit Open Software License 3.0 
+# Developed by Dawid Zyla, La Jolla Institute for Immunology
+# Non-Profit Open Software License 3.0
 
 # update v6 (2025-04-26)
 
@@ -18,7 +18,7 @@
 # -> Added support for all (most) Relion jobs covering all cryo-ET and SPA jobs (except for DynaMight)
 # -> Temporary removed live and in-browser job execution
 # -> General QOL fixes and improvements
-# 
+#
 # ## New Features
 # -> Support for all cryo-ET jobs with job previews
 # -> Optimized visualizations for most of the Relion jobs
@@ -47,9 +47,11 @@ import streamlit as st
 # Local Imports
 from lib.jobs_utils import (  # Assuming these are correctly defined in jobs_utils
     create_network,
+    create_network_agraph_data,
     display_job_info,
     format_display_name,
 )
+from streamlit_agraph import agraph, Node, Edge, Config
 from lib.utils import (  # Assuming these are correctly defined in utils
     check_password,
     custom_css,
@@ -63,37 +65,8 @@ from lib.utils import (  # Assuming these are correctly defined in utils
     render_svg,
     report_error,  # Use the central report_error
 )
-
-# =============================================================================
-# Constants
-# =============================================================================
-# Column names in RELION STAR files
-RLN_PROCESS_TYPE_LABEL = "_rlnPipeLineProcessTypeLabel"
-RLN_PROCESS_ALIAS = "_rlnPipeLineProcessAlias"
-RLN_PROCESS_NAME = "_rlnPipeLineProcessName"
-RLN_STATUS_LABEL = "_rlnPipeLineProcessStatusLabel"
-
-# Keys for data blocks in parsed pipeline STAR dictionary
-PIPELINE_PROCESSES_KEY = "pipeline_processes"
-PIPELINE_NODES_KEY = "pipeline_nodes"
-PIPELINE_EDGES_KEY = "pipeline_input_edges"  # Make sure this key matches parser output
-
-# Special process names used internally
-FLOWCHART_PROCESS = "relion.flowchart"
-INTERACTIVE_PLOT_PROCESS = "relion.InteractivePlot"
-
-# Session State Keys
-STATE_SELECTED_PROCESS = "selected_process"
-STATE_CURRENT_JOB = "current_job"
-STATE_JOB_PARAMS = "job_params"
-STATE_PROCESS_RADIO_KEY = "process_radio_key"
-STATE_JOB_RADIO_KEY = "job_radio_key"
-STATE_PASSWORD_ARGS = "password_args"
-STATE_DEFAULT_FOLDER = "default_job_folder"  # Initial folder path from args/explorer
-STATE_CURRENT_FOLDER = "current_folder_path"  # Path currently being viewed
-STATE_DISPLAY_TO_ORIGINAL_PROCESS = "display_to_original_process_map"
-STATE_JOBS_DICT = "jobs_dict"
-TEMP_DIR_PATH = "temp"
+from lib.state import StateManager
+from lib.constants import *
 
 # Logger configuration
 logging_level = logging.DEBUG
@@ -312,49 +285,50 @@ def handle_folder_change():
         STATE_DISPLAY_TO_ORIGINAL_PROCESS,
     ]
     for key in keys_to_reset:
-        if key in st.session_state:
-            st.session_state[key] = None  # Reset to None or appropriate default
-    st.session_state[STATE_JOBS_DICT] = {}  # Ensure these are empty dicts
-    st.session_state[STATE_JOB_PARAMS] = {}
-    st.session_state[STATE_DISPLAY_TO_ORIGINAL_PROCESS] = {}
+        StateManager.set(key, None) # Reset to None or appropriate default
+
+    StateManager.set(STATE_JOBS_DICT, {})  # Ensure these are empty dicts
+    StateManager.set(STATE_JOB_PARAMS, {})
+    StateManager.set(STATE_DISPLAY_TO_ORIGINAL_PROCESS, {})
 
     # Update query params to persist folder across refreshes
-    if STATE_CURRENT_FOLDER in st.session_state:
-        st.query_params["folder"] = st.session_state[STATE_CURRENT_FOLDER]
+    current_folder = StateManager.get_current_folder()
+    if current_folder:
+        st.query_params["folder"] = current_folder
 
 
 def handle_process_change():
     """Resets job state when the selected process type changes via the radio button."""
-    selected_display_name = st.session_state.get(STATE_PROCESS_RADIO_KEY)
-    display_to_original = st.session_state.get(STATE_DISPLAY_TO_ORIGINAL_PROCESS, {})
+    selected_display_name = StateManager.get(STATE_PROCESS_RADIO_KEY)
+    display_to_original = StateManager.get(STATE_DISPLAY_TO_ORIGINAL_PROCESS, {})
     newly_selected_process = display_to_original.get(selected_display_name)
 
     # Check if the *actual underlying process name* has changed
-    if newly_selected_process != st.session_state.get(STATE_SELECTED_PROCESS):
+    if newly_selected_process != StateManager.get_selected_process():
         logger.info("Process selection changed to: '%s'", newly_selected_process)
-        st.session_state[STATE_SELECTED_PROCESS] = newly_selected_process
+        StateManager.set_selected_process(newly_selected_process)
         # Reset only job-related state
-        st.session_state[STATE_CURRENT_JOB] = None
-        st.session_state[STATE_JOB_PARAMS] = {}
-        st.session_state[STATE_JOB_RADIO_KEY] = None
-        st.session_state[STATE_JOBS_DICT] = {}
+        StateManager.set_current_job(None)
+        StateManager.set_job_params({})
+        StateManager.set(STATE_JOB_RADIO_KEY, None)
+        StateManager.set(STATE_JOBS_DICT, {})
         logger.debug("Job state reset due to process change.")
 
 
 def handle_job_change():
     """Updates the current job based on the job radio button selection."""
-    selected_display_key = st.session_state.get(STATE_JOB_RADIO_KEY)
-    jobs_dict = st.session_state.get(STATE_JOBS_DICT, {})
+    selected_display_key = StateManager.get(STATE_JOB_RADIO_KEY)
+    jobs_dict = StateManager.get(STATE_JOBS_DICT, {})
     newly_selected_job_name = jobs_dict.get(selected_display_key)
 
     # Check if the *actual underlying job name* has changed
-    if newly_selected_job_name != st.session_state.get(STATE_CURRENT_JOB):
+    if newly_selected_job_name != StateManager.get_current_job():
         logger.info("Job selection changed to: '%s'", newly_selected_job_name)
-        st.session_state[STATE_CURRENT_JOB] = newly_selected_job_name
-        st.session_state[STATE_JOB_PARAMS] = {
-            "folder": st.session_state.get(STATE_CURRENT_FOLDER),
-            "process": st.session_state.get(STATE_SELECTED_PROCESS),
-        }
+        StateManager.set_current_job(newly_selected_job_name)
+        StateManager.set_job_params({
+            "folder": StateManager.get_current_folder(),
+            "process": StateManager.get_selected_process(),
+        })
 
 
 # =============================================================================
@@ -384,7 +358,7 @@ def main() -> None:
 
         # --- Session State Initialization ---
         # Initialize folder state using query params if available, else command line argument
-        if STATE_DEFAULT_FOLDER not in st.session_state:
+        if not StateManager.get(STATE_DEFAULT_FOLDER):
             query_params = st.query_params
             if "folder" in query_params:
                 initial_folder = query_params["folder"]
@@ -393,25 +367,24 @@ def main() -> None:
                 initial_folder = os.path.abspath(os.path.expanduser(args.folder))
                 logger.info("Initialized state: Default folder set from arg to %s", initial_folder)
 
-            st.session_state[STATE_DEFAULT_FOLDER] = initial_folder
-            st.session_state[STATE_CURRENT_FOLDER] = initial_folder
+            StateManager.set_default_folder(initial_folder)
+            StateManager.set_current_folder(initial_folder)
+
         # Ensure other states have default values if not set previously
-        st.session_state.setdefault(
-            STATE_CURRENT_FOLDER, st.session_state[STATE_DEFAULT_FOLDER]
-        )
-        st.session_state.setdefault(STATE_PASSWORD_ARGS, args.password)
-        st.session_state.setdefault(STATE_SELECTED_PROCESS, None)
-        st.session_state.setdefault(STATE_CURRENT_JOB, None)
-        st.session_state.setdefault(STATE_JOB_PARAMS, {})
-        st.session_state.setdefault(STATE_PROCESS_RADIO_KEY, None)
-        st.session_state.setdefault(STATE_JOB_RADIO_KEY, None)
-        st.session_state.setdefault(STATE_DISPLAY_TO_ORIGINAL_PROCESS, {})
-        st.session_state.setdefault(STATE_JOBS_DICT, {})
+        StateManager.initialize(STATE_CURRENT_FOLDER, StateManager.get_default_folder())
+        StateManager.initialize(STATE_PASSWORD_ARGS, args.password)
+        StateManager.initialize(STATE_SELECTED_PROCESS, None)
+        StateManager.initialize(STATE_CURRENT_JOB, None)
+        StateManager.initialize(STATE_JOB_PARAMS, {})
+        StateManager.initialize(STATE_PROCESS_RADIO_KEY, None)
+        StateManager.initialize(STATE_JOB_RADIO_KEY, None)
+        StateManager.initialize(STATE_DISPLAY_TO_ORIGINAL_PROCESS, {})
+        StateManager.initialize(STATE_JOBS_DICT, {})
 
         # --- Password Check ---
-        if st.session_state[STATE_PASSWORD_ARGS]:
+        if StateManager.get(STATE_PASSWORD_ARGS):
             if not check_password(
-                st.session_state[STATE_PASSWORD_ARGS]
+                StateManager.get(STATE_PASSWORD_ARGS)
             ):  # Pass correct arg
                 st.warning("Password required.")
                 st.stop()
@@ -425,24 +398,24 @@ def main() -> None:
         # It uses STATE_DEFAULT_FOLDER as its starting point if uninitialized.
         # It returns the confirmed path, which we use to update STATE_CURRENT_FOLDER if needed.
         selected_folder = dynamic_folder_explorer(
-            st.session_state[STATE_DEFAULT_FOLDER]
+            StateManager.get_default_folder()
         )
 
         # Detect if the folder confirmed by the explorer differs from the current viewing folder
-        if selected_folder != st.session_state.get(STATE_CURRENT_FOLDER):
+        if selected_folder != StateManager.get_current_folder():
             logger.info(
                 "Folder changed via explorer: '%s' -> '%s'",
-                st.session_state.get(STATE_CURRENT_FOLDER),
+                StateManager.get_current_folder(),
                 selected_folder,
             )
-            st.session_state[STATE_CURRENT_FOLDER] = selected_folder
+            StateManager.set_current_folder(selected_folder)
             # Crucially, update the DEFAULT folder as well if the user explicitly selected it
-            st.session_state[STATE_DEFAULT_FOLDER] = selected_folder
+            StateManager.set_default_folder(selected_folder)
             handle_folder_change()  # Reset dependent states
-            st.cache_data.clear()  # Clear data cache on folder change
+            StateManager.clear_cache()  # Clear data cache on folder change
             st.rerun()
 
-        current_folder = st.session_state[STATE_CURRENT_FOLDER]
+        current_folder = StateManager.get_current_folder()
 
         # --- Load Data for Current Folder ---
         pipeline_star = load_pipeline_star(current_folder)  # Uses cache
@@ -471,19 +444,17 @@ def main() -> None:
             # Map original names to display names
             original_to_display = {p: format_display_name(p) for p in all_processes}
             display_to_original = {d: p for p, d in original_to_display.items()}
-            st.session_state[STATE_DISPLAY_TO_ORIGINAL_PROCESS] = display_to_original
+            StateManager.set(STATE_DISPLAY_TO_ORIGINAL_PROCESS, display_to_original)
             display_options = list(original_to_display.values())
 
             # Determine current selection index for the radio button
-            current_display = st.session_state.get(STATE_PROCESS_RADIO_KEY)
+            current_display = StateManager.get(STATE_PROCESS_RADIO_KEY)
             if current_display not in display_options:
                 current_display = display_options[0] if display_options else None
                 # If defaulting, update the underlying selected process state
                 if current_display:
-                    st.session_state[STATE_PROCESS_RADIO_KEY] = current_display
-                    st.session_state[STATE_SELECTED_PROCESS] = display_to_original.get(
-                        current_display
-                    )
+                    StateManager.set(STATE_PROCESS_RADIO_KEY, current_display)
+                    StateManager.set_selected_process(display_to_original.get(current_display))
                     handle_process_change()  # Reset job state implicitly
 
             current_index = (
@@ -502,32 +473,30 @@ def main() -> None:
             )
 
             # --- Sidebar: Job Selection ---
-            selected_process = st.session_state.get(STATE_SELECTED_PROCESS)
+            selected_process = StateManager.get_selected_process()
             if selected_process and selected_process not in special_processes:
                 # Get jobs IN ORIGINAL ORDER
                 jobs_display_keys, jobs_dict = get_jobs_for_process(
                     selected_process, df
                 )  # Uses cache
-                st.session_state[STATE_JOBS_DICT] = jobs_dict
+                StateManager.set(STATE_JOBS_DICT, jobs_dict)
 
                 if jobs_display_keys:
                     process_display_name = format_display_name(selected_process)
                     st.sidebar.title(f"{process_display_name} Jobs")
 
-                    current_job_key = st.session_state.get(STATE_JOB_RADIO_KEY)
+                    current_job_key = StateManager.get(STATE_JOB_RADIO_KEY)
                     # Check if current selection is valid, default to LAST job if not
                     if current_job_key not in jobs_display_keys:
                         current_job_key = jobs_display_keys[
                             -1
                         ]  # Default to last job in the list
-                        st.session_state[STATE_JOB_RADIO_KEY] = current_job_key
-                        st.session_state[STATE_CURRENT_JOB] = jobs_dict.get(
-                            current_job_key
-                        )
-                        st.session_state[STATE_JOB_PARAMS] = {
+                        StateManager.set(STATE_JOB_RADIO_KEY, current_job_key)
+                        StateManager.set_current_job(jobs_dict.get(current_job_key))
+                        StateManager.set_job_params({
                             "folder": current_folder,
                             "process": selected_process,
-                        }
+                        })
 
                     job_index = jobs_display_keys.index(current_job_key)
 
@@ -541,30 +510,89 @@ def main() -> None:
                     )
                 else:
                     st.sidebar.caption("No jobs of this type found.")
-                    if (
-                        st.session_state.get(STATE_CURRENT_JOB) is not None
-                    ):  # Clear state if no jobs
-                        st.session_state[STATE_CURRENT_JOB] = None
-                        st.session_state[STATE_JOB_PARAMS] = {}
-                        st.session_state[STATE_JOB_RADIO_KEY] = None
+                    if StateManager.get_current_job() is not None:  # Clear state if no jobs
+                        StateManager.set_current_job(None)
+                        StateManager.set_job_params({})
+                        StateManager.set(STATE_JOB_RADIO_KEY, None)
 
             # --- Main Area Display ---
             st.markdown("---")
             if selected_process == FLOWCHART_PROCESS:
                 st.title("Pipeline Flowchart")
-                orientation = st.radio(
-                    "Layout:",
-                    ["top-bottom", "left-right"],
-                    index=0,
-                    key="flowchart_orientation",
-                    horizontal=True,
-                )
                 if pipeline_star:
-                    dot_string = create_network(pipeline_star, orientation=orientation)
-                    if dot_string:
-                        st.graphviz_chart(dot_string, use_container_width=True)
+                    nodes, edges = create_network_agraph_data(pipeline_star)
+
+                    if nodes and edges:
+                        config = Config(width=800,
+                                        height=600,
+                                        directed=True,
+                                        nodeHighlightBehavior=True,
+                                        highlightColor="#F7A7A6", # or "blue"
+                                        collapsible=False,
+                                        node={'labelProperty': 'label'},
+                                        link={'labelProperty': 'label', 'renderLabel': False}
+                                        )
+
+                        return_value = agraph(nodes=nodes,
+                                              edges=edges,
+                                              config=config)
+
+                        if return_value:
+                            # Assuming the return_value is the node ID
+                            selected_node_id = return_value
+                            logger.info(f"Node clicked in flowchart: {selected_node_id}")
+
+                            # Check if the clicked node is a job
+                            # The node ID format is expected to be "Type/JobName" or similar
+                            # We need to map this back to our selection logic
+
+                            # Try to find the job in our known processes or jobs
+                            # Ideally, we should set the process and job.
+
+                            parts = selected_node_id.split('/')
+                            if len(parts) >= 2:
+                                potential_job_type = parts[0]
+
+                                # Check if it is a valid process type
+                                if potential_job_type in process_types:
+                                    StateManager.set_selected_process(potential_job_type)
+                                    StateManager.set_current_job(selected_node_id) # "Type/JobName" matches our job naming convention usually
+
+                                    # Update radio buttons if possible, or just let the state drive the UI on rerun
+                                    # We need to update params too
+                                    StateManager.set_job_params({
+                                        "folder": current_folder,
+                                        "process": potential_job_type,
+                                    })
+
+                                    # Force radio updates by setting keys?
+                                    # Radio buttons use 'index' based on options.
+                                    # We updated the underlying state variables (SELECTED_PROCESS, CURRENT_JOB).
+                                    # The main loop logic "Determine current selection index..." should pick this up
+                                    # if we set the PROCESS_RADIO_KEY and JOB_RADIO_KEY.
+
+                                    # Find display name for process
+                                    display_map = StateManager.get(STATE_DISPLAY_TO_ORIGINAL_PROCESS)
+                                    # Invert map: original -> display
+                                    original_to_display = {v: k for k, v in display_map.items()} if display_map else {}
+
+                                    process_display = original_to_display.get(potential_job_type)
+                                    if process_display:
+                                        StateManager.set(STATE_PROCESS_RADIO_KEY, process_display)
+
+                                    # Job radio key is usually the display name of the job (alias or name)
+                                    # We need to re-fetch the jobs list for this process to find the correct display key for this job ID
+                                    # This is a bit circular because we are inside the rendering loop.
+                                    # A rerun will handle the logic at the top of the script.
+
+                                    # However, to set the job radio correctly, we might need to pre-calculate.
+                                    # For now, setting selected_process and current_job is the core requirement.
+
+                                    st.rerun()
+                                else:
+                                    st.warning(f"Selected node '{selected_node_id}' does not match a known process type.")
                     else:
-                        st.warning("Could not generate flowchart.")
+                        st.warning("Could not generate flowchart data.")
                 else:
                     st.warning("Load a project first.")
 
@@ -620,7 +648,7 @@ def main() -> None:
                     col1.info("Upload or provide path to a STAR file.")
 
             elif selected_process:  # Regular RELION job type
-                selected_job = st.session_state.get(STATE_CURRENT_JOB)
+                selected_job = StateManager.get_current_job()
                 if selected_job:
                     display_job_info(
                         selected_job, current_folder, df, pipeline_star or {}
@@ -635,7 +663,7 @@ def main() -> None:
                 st.info("Select a process type or view from the sidebar.")
 
         def on_refresh_click():
-            st.cache_data.clear()
+            StateManager.clear_cache()
             handle_folder_change()
 
         st.sidebar.button(
@@ -644,6 +672,49 @@ def main() -> None:
             help="Refresh the page to reload data and clear cache.",
             on_click=on_refresh_click,  # Clear cache and reset state
         )
+
+        # Watchdog logic
+        enable_watchdog = st.sidebar.checkbox("Live Watchdog", value=False, help="Automatically refresh when file system changes are detected.")
+
+        if enable_watchdog:
+            from watchdog.observers import Observer
+            from watchdog.events import FileSystemEventHandler
+            import time
+
+            class RelionHandler(FileSystemEventHandler):
+                def on_any_event(self, event):
+                    # Trigger a rerun by updating a state variable if needed,
+                    # but since this runs in a separate thread, we need to handle it carefully.
+                    # Streamlit reruns usually happen on interaction or st.rerun().
+                    # We can use st.empty() to poll or check modification times.
+                    # For simplicity in Streamlit, a polling loop inside the script with st.rerun is often safer/easier
+                    # than integrating the threaded observer callback directly with the main thread loop.
+                    pass
+
+            # Since threading/watchdog callbacks don't easily trigger st.rerun() in the main thread,
+            # we'll use a simple polling mechanism which is often robust enough for this use case.
+
+            last_mod_time = st.session_state.get("last_mod_time", 0)
+
+            # Check modification time of the pipeline file as a proxy for significant changes
+            pipeline_path = os.path.join(current_folder, "default_pipeline.star")
+            if os.path.exists(pipeline_path):
+                current_mod_time = os.path.getmtime(pipeline_path)
+                if last_mod_time > 0 and current_mod_time > last_mod_time:
+                    st.session_state["last_mod_time"] = current_mod_time
+                    StateManager.clear_cache()
+                    st.rerun()
+                st.session_state["last_mod_time"] = current_mod_time
+
+            # Poll every few seconds using st.empty() (which effectively sleeps/waits if we loop)
+            # OR just rely on the script rerun cycle if we had a loop.
+            # But main() runs once. Streamlit handles re-runs.
+            # We can use st.fragment or simply a sleep loop if we want "live" updates without interaction.
+            # However, blocking the script with a loop prevents other interactions.
+            # A common pattern is `time.sleep(2); st.rerun()` but only if we are in a "live" mode.
+
+            time.sleep(2)
+            st.rerun()
         # --- Footer ---
         st.sidebar.markdown("---")
         st.sidebar.markdown(footer, unsafe_allow_html=True)

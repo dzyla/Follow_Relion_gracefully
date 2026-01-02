@@ -18,24 +18,9 @@ from lib.utils import (
     get_relationships_df,
     report_error,
 )
-# Import job-specific plotting/processing functions
-from relion_jobs.class2d_job import plot_class2d
-from relion_jobs.class3d_job import plot_class3d
-from relion_jobs.ctffind_job import plot_ctf_stats
-from relion_jobs.ctfrefine_job import plot_ctf_refine
-from relion_jobs.excludetilt_job import plot_exclude_tilt
-from relion_jobs.extract_job import process_extract
-from relion_jobs.import_job import plot_import
-from relion_jobs.localres_job import plot_locres
-from relion_jobs.mask_job import plot_mask
-from relion_jobs.modelangelo_job import plot_modelangelo
-from relion_jobs.motioncorr_job import plot_motioncorr
-from relion_jobs.picking_job import plot_picks
-from relion_jobs.polish_job import plot_polish
-from relion_jobs.postprocess_job import plot_postprocess
-from relion_jobs.select_job import plot_selection
-from relion_jobs.tomo_pick_job import plot_pick_tomo
-from relion_jobs.tomograms_job import plot_tomographs
+from lib.job_handlers import get_job_handler
+from lib.constants import *
+from streamlit_agraph import agraph, Node, Edge, Config
 
 # --- Globals ---
 ERROR_HANDLER: Optional[Callable[[Exception, str], None]] = None
@@ -209,84 +194,34 @@ def execute_relion_job(selected_job: str, folder: str, node_files: List[str]) ->
     Returns:
         True if a matching job action was found and called, False otherwise.
     """
-    
-    
-    # Map job type keywords (expected prefixes) to their handler functions
-    # Use lambdas to defer function execution until a match is found
-    job_actions = {
-        "Import": lambda: plot_import(folder, node_files),
-        "MotionCorr": lambda: plot_motioncorr(folder, node_files[0]), 
-        "CtfFind": lambda: plot_ctf_stats(folder, node_files[0]),    
-        "AutoPick": lambda: plot_picks(folder, selected_job),        # Uses job path directly
-        "ManualPick": lambda: plot_picks(folder, selected_job),      # Uses job path directly
-        "Extract": lambda: process_extract(folder, node_files),
-        "Subtract": lambda: process_extract(folder, node_files),
-        "Select": lambda: plot_selection(node_files, folder, selected_job),
-        "Class2D": lambda: plot_class2d(folder, node_files),
-        "InitialModel": lambda: plot_class3d(folder, node_files),   # Shares 3D plotting
-        "Class3D": lambda: plot_class3d(folder, node_files),
-        "Refine3D": lambda: plot_class3d(folder, node_files),
-        "MaskCreate": lambda: plot_mask(folder, node_files),
-        "PostProcess": lambda: plot_postprocess(folder, node_files),
-        "CtfRefine": lambda: plot_ctf_refine(folder, node_files), # Handle Tomo separately if needed
-        "Polish": lambda: plot_polish(folder, node_files),
-        "LocalRes": lambda: plot_locres(node_files, folder, selected_job),
-        "ModelAngelo": lambda: plot_modelangelo(folder, node_files),
-        "JoinStar": lambda: plot_selection(node_files, folder, selected_job),
-        
-        # Tomo Jobs
-        "ReconstructParticleTomo": lambda: plot_class3d(folder, node_files), 
-        "ExcludeTiltImages": lambda: plot_exclude_tilt(folder, node_files[0]),
-        "AlignTiltSeries": lambda: plot_exclude_tilt(folder, node_files[0]), 
-        "ReconstructTomograms": lambda: plot_tomographs(folder, node_files[0]), 
-        "Tomograms": lambda: plot_tomographs(folder, node_files[0]),
-        "Denoise": lambda: plot_tomographs(folder, node_files[0]), 
-        "Picks": lambda: plot_pick_tomo(folder, node_files), 
-        "PseudoSubtomo": lambda: process_extract(folder, node_files), 
-        "Reconstruct": lambda: plot_class3d(folder, node_files), 
-        "SubtractImages": lambda: process_extract(folder, node_files), 
-        # "DynaMight": lambda: plot_dynamight(folder, node_files), # to be implemented
-    }
+    job_type = selected_job.split('/')[0] # Get the part before the first '/'
+    handler = get_job_handler(job_type)
 
-    job_type_found = False
-    for job_type, action in job_actions.items():
-        # Check if the job_type keyword is present in the selected_job path string
-        # Use regex word boundary \b ? or simple 'in'? Simple 'in' might match substrings wrongly.
-        # Let's check if selected_job *starts* with the job_type prefix for better matching.
-        # e.g., "Class2D/job001" starts with "Class2D"
-        job_prefix = selected_job.split('/')[0] # Get the part before the first '/'
-        if job_prefix == job_type:
-            logger.info(f"Executing action for job type: {job_type} (Job: {selected_job})")
-            try:
-                action() # Call the lambda function
-                job_type_found = True
-                break # Stop after first match
-            except IndexError as idx_err:
-                 if not node_files:
-                     st.error(f"Error executing '{job_type}': No node files provided.")
-                     logger.error(f"IndexError for job {selected_job}: No node files provided. {idx_err}")
-                 else:
-                     report_error(idx_err, f"IndexError executing action for job type {job_type}")
-                     st.error(f"An processing error occurred for '{job_type}'. See logs.")
-                 job_type_found = True # Mark as found but failed
-                 break
-            except FileNotFoundError as fnf_err:
-                  st.error(f"Error executing '{job_type}': Required file not found: {fnf_err.filename}")
-                  logger.error(f"FileNotFoundError for job {selected_job}: {fnf_err}")
-                  job_type_found = True
-                  break
-            except Exception as e:
-                report_error(e, f"Error executing action for job type {job_type}")
-                st.error(f"An error occurred while processing job '{selected_job}'. See logs for details.")
-                job_type_found = True # Mark as found but failed
-                break # Stop after error
-
-    if not job_type_found:
+    if handler:
+        logger.info(f"Executing action for job type: {job_type} (Job: {selected_job})")
+        try:
+            handler.execute(folder, node_files, selected_job)
+            return True
+        except IndexError as idx_err:
+                if not node_files:
+                    st.error(f"Error executing '{job_type}': No node files provided.")
+                    logger.error(f"IndexError for job {selected_job}: No node files provided. {idx_err}")
+                else:
+                    report_error(idx_err, f"IndexError executing action for job type {job_type}")
+                    st.error(f"An processing error occurred for '{job_type}'. See logs.")
+                return True # Mark as found but failed
+        except FileNotFoundError as fnf_err:
+                st.error(f"Error executing '{job_type}': Required file not found: {fnf_err.filename}")
+                logger.error(f"FileNotFoundError for job {selected_job}: {fnf_err}")
+                return True
+        except Exception as e:
+            report_error(e, f"Error executing action for job type {job_type}")
+            st.error(f"An error occurred while processing job '{selected_job}'. See logs for details.")
+            return True # Mark as found but failed
+    else:
         st.info(f"Job is not supported (yet) '{selected_job}'.")
         logger.info(f"No matching action found for job: {selected_job}")
         return False
-
-    return job_type_found # Return True if found (even if failed), False otherwise
 
 
 def display_job_info(
@@ -628,74 +563,43 @@ def display_job_info(
     
 
 
-def create_network(
-    pipeline_star: Dict[str, pd.DataFrame], orientation: str = "top-bottom"
-) -> Optional[str]:
+def create_network_agraph_data(pipeline_star: Dict[str, pd.DataFrame]):
     """
-    Creates a Graphviz DOT language string for visualizing the job pipeline.
-
-    Includes all nodes and edges found in 'pipeline_input_edges', applying
-    styling based on node type (job vs. other).
-
-    Args:
-        pipeline_star: Dictionary from parsed pipeline.star, expecting
-                       'pipeline_input_edges'.
-        orientation: Layout direction ("top-bottom" or "left-right").
-
-    Returns:
-        A string in Graphviz DOT format, or a minimal DOT graph if no
-        valid edges are found, or None on critical error.
+    Prepares Nodes and Edges for streamlit-agraph visualization.
     """
-    logger.info(f"Creating network graph with orientation: {orientation}")
-    # --- Input Validation ---
+    logger.info("Creating network graph data for streamlit-agraph")
+    nodes = []
+    edges = []
+
     if (
         "pipeline_input_edges" not in pipeline_star
         or not isinstance(pipeline_star["pipeline_input_edges"], pd.DataFrame)
-        # Allow empty dataframe, will result in empty graph string
+        or pipeline_star["pipeline_input_edges"].empty
     ):
         logger.warning("Graph Creation Warning: Missing or invalid 'pipeline_input_edges' DataFrame.")
-        # Return an empty graph instead of None
-        return "digraph RelionPipeline { rankdir=TB; label=\"Pipeline data missing\"; }"
+        return [], []
 
     try:
         job_edges_df = pipeline_star["pipeline_input_edges"]
-        if job_edges_df.empty:
-            logger.warning("Graph Creation Warning: 'pipeline_input_edges' DataFrame is empty.")
-            return "digraph RelionPipeline { rankdir=TB; label=\"No pipeline edges found\"; }"
 
-
-        # --- Node Name Simplification ---
         def simplify_node_name(name):
-            # Handles "Type/JobName/MaybeMore" -> "Type/JobName"
-            # Handles "Type/JobName" -> "Type/JobName"
-            # Handles "Type" -> "Type"
             if isinstance(name, str):
                 parts = name.split("/")
                 return "/".join(parts[:2]) if len(parts) >= 2 else name
             return str(name)
 
-        # Process ALL edges and collect unique nodes and edges
         all_edges = set()
         all_nodes = set()
         for _, row in job_edges_df.iterrows():
-            # Ensure columns exist before accessing
             if "_rlnPipeLineEdgeFromNode" not in row or "_rlnPipeLineEdgeProcess" not in row:
-                 logger.warning(f"Skipping edge due to missing column(s): {row}")
                  continue
             src_simple = simplify_node_name(row["_rlnPipeLineEdgeFromNode"])
             dest_simple = simplify_node_name(row["_rlnPipeLineEdgeProcess"])
-            if src_simple and dest_simple: # Avoid edges with empty nodes
+            if src_simple and dest_simple:
                 all_edges.add((src_simple, dest_simple))
                 all_nodes.add(src_simple)
                 all_nodes.add(dest_simple)
 
-        if not all_nodes:
-            logger.warning("No valid nodes found after processing edges.")
-            return "digraph RelionPipeline { rankdir=TB; label=\"No valid nodes found\"; }"
-
-        # --- Styling ---
-        # Pattern to identify likely job nodes (Type/Identifier) for styling
-        style_job_pattern = re.compile(r"^[A-Za-z0-9_]+/[A-Za-z0-9_]+$")
         # Simplified palette
         palette = {
             "red": "#F4C7C3", "orange": "#FAD9A1", "yellow": "#FFFACD",
@@ -703,60 +607,35 @@ def create_network(
             "blue": "#AEC6CF", "indigo": "#C9CBE0", "purple": "#D8BFD8",
             "pink": "#F8C8DC", "brown": "#E0D8C0", "grey": "#E0E0E0"
         }
+
         job_type_styles = {
-            "Import": {"shape": "diamond", "fillcolor": palette["red"]},
-            "MotionCorr": {"shape": "ellipse", "fillcolor": palette["orange"]},
-            "CtfFind": {"shape": "ellipse", "fillcolor": palette["yellow"], "fontcolor": "#333"},
-            "AutoPick": {"shape": "hexagon", "fillcolor": palette["cyan"], "fontcolor": "#333"},
-            "ManualPick": {"shape": "hexagon", "fillcolor": palette["teal"], "fontcolor": "#333"},
-            "Extract": {"shape": "invhouse", "fillcolor": palette["blue"]},
-            "Subtract": {"shape": "invhouse", "fillcolor": palette["blue"]},
-            "Select": {"shape": "ellipse", "fillcolor": palette["green"], "fontcolor": "#333"},
-            "Class2D": {"shape": "box", "fillcolor": palette["grey"], "fontcolor": "#333"},
-            "InitialModel": {"shape": "doublecircle", "fillcolor": palette["indigo"]},
-            "Class3D": {"shape": "ellipse", "fillcolor": palette["purple"]},
-            "Refine3D": {"shape": "ellipse", "fillcolor": palette["indigo"]},
-            "MaskCreate": {"shape": "pentagon", "fillcolor": palette["pink"], "fontcolor": "#333"},
-            "PostProcess": {"shape": "note", "fillcolor": palette["green"]},
-            "CtfRefine": {"shape": "octagon", "fillcolor": palette["orange"]},
-            "Polish": {"shape": "parallelogram", "fillcolor": palette["blue"]},
-            "LocalRes": {"shape": "trapezium", "fillcolor": palette["purple"]},
-            "ModelAngelo": {"shape": "ellipse", "fillcolor": palette["brown"]},
-            "JoinStar": {"shape": "ellipse", "fillcolor": palette["grey"]},
-            # Tomo
-            "AlignTiltSeries": {"shape": "parallelogram", "fillcolor": palette["purple"]},
-            "ReconstructTomograms": {"shape": "hexagon", "fillcolor": palette["green"]},
-             # Default for recognized job types not explicitly listed
-            "job_default": {"shape": "ellipse", "fillcolor": palette["grey"], "fontcolor": "#333"},
-            # Default for non-job nodes (e.g., files, other steps)
-            "other_default": {"shape": "box", "style": "filled,dashed", "fillcolor": "#FAFAFA", "color": "#BBBBBB", "fontcolor": "#777", "fontsize": 8},
+            "Import": {"shape": "diamond", "color": palette["red"]},
+            "MotionCorr": {"shape": "ellipse", "color": palette["orange"]},
+            "CtfFind": {"shape": "ellipse", "color": palette["yellow"]},
+            "AutoPick": {"shape": "hexagon", "color": palette["cyan"]},
+            "ManualPick": {"shape": "hexagon", "color": palette["teal"]},
+            "Extract": {"shape": "square", "color": palette["blue"]},
+            "Subtract": {"shape": "square", "color": palette["blue"]},
+            "Select": {"shape": "ellipse", "color": palette["green"]},
+            "Class2D": {"shape": "box", "color": palette["grey"]},
+            "InitialModel": {"shape": "dot", "color": palette["indigo"]},
+            "Class3D": {"shape": "ellipse", "color": palette["purple"]},
+            "Refine3D": {"shape": "ellipse", "color": palette["indigo"]},
+            "MaskCreate": {"shape": "pentagon", "color": palette["pink"]},
+            "PostProcess": {"shape": "star", "color": palette["green"]},
+            "CtfRefine": {"shape": "hexagon", "color": palette["orange"]},
+            "Polish": {"shape": "triangle", "color": palette["blue"]},
+            "LocalRes": {"shape": "triangleDown", "color": palette["purple"]},
+            "ModelAngelo": {"shape": "ellipse", "color": palette["brown"]},
+            "JoinStar": {"shape": "ellipse", "color": palette["grey"]},
+            "job_default": {"shape": "ellipse", "color": palette["grey"]},
+            "other_default": {"shape": "box", "color": "#FAFAFA"},
         }
-        # Ensure base attributes
-        for style in job_type_styles.values():
-            style.setdefault("fontcolor", "black")
-            style.setdefault("color", "#555555") # Default border color
-            style.setdefault("style", "filled")
-            style.setdefault("fontsize", 9)
 
-        # --- Build DOT String ---
-        rankdir = "TB" if orientation == "top-bottom" else "LR"
-        nodesep = 0.1 if rankdir == "LR" else 0.05
-        ranksep = 0.5
+        style_job_pattern = re.compile(r"^[A-Za-z0-9_]+/[A-Za-z0-9_]+$")
 
-        dot = [
-            "digraph RelionPipeline {",
-            "    bgcolor=transparent;", f"    rankdir={rankdir};", "    splines=ortho;",
-            "    overlap=scale; concentrate=true;", # Try concentrate for edge merging
-            f"    nodesep={nodesep:.2f};", f"    ranksep={ranksep:.2f};",
-            "    outputorder=edgesfirst;",
-            "    node [fontname=\"Helvetica\", margin=\"0.08,0.05\"];", # Slightly larger margin
-            "    edge [arrowsize=0.7, color=\"#999999\", penwidth=1.0];", ""
-        ]
-
-        # Define Nodes
         for node_name in sorted(list(all_nodes)):
             job_type = node_name.split("/")[0]
-            # Determine style: check specific type, then if it looks like a job, else other_default
             if job_type in job_type_styles:
                  style = job_type_styles[job_type]
             elif style_job_pattern.match(node_name):
@@ -764,30 +643,28 @@ def create_network(
             else:
                  style = job_type_styles["other_default"]
 
-            # Format label: Use job number/second part on new line if possible
             parts = node_name.split("/")
-            label = "\\n".join(parts) if len(parts) > 1 else node_name
-            node_id = f'"{node_name}"' # Quote node names
-            tooltip = node_name # Simple tooltip
+            label = "\n".join(parts) if len(parts) > 1 else node_name
 
-            # Build attribute string
-            attrs = [f'label="{label}"', f'shape={style["shape"]}',
-                     f'style="{style["style"]}"', f'fillcolor="{style["fillcolor"]}"',
-                     f'color="{style["color"]}"', f'fontcolor="{style["fontcolor"]}"',
-                     f'fontsize={style["fontsize"]}', f'tooltip="{tooltip}"']
-            dot.append(f'    {node_id} [{", ".join(attrs)}];')
+            nodes.append(Node(
+                id=node_name,
+                label=label,
+                size=25,
+                shape=style.get("shape", "dot"),
+                color=style.get("color", "#grey"),
+                font={'color': 'black'}
+            ))
 
-        # Define Edges
-        dot.append("\n    // Edges")
         for src, dest in sorted(list(all_edges)):
-            dot.append(f'    "{src}" -> "{dest}";')
+            edges.append(Edge(source=src, target=dest, color="#999999"))
 
-        dot.append("}")
-        return "\n".join(dot)
-
-    except KeyError as e:
-        report_error(KeyError(f"DOT Generation Error: Missing expected column: {e}"))
-        return None
     except Exception as e:
-        report_error(e, "Error generating DOT network graph.")
-        return None
+        report_error(e, "Error generating network graph data.")
+
+    return nodes, edges
+
+def create_network(
+    pipeline_star: Dict[str, pd.DataFrame], orientation: str = "top-bottom"
+) -> Optional[str]:
+    # Placeholder for backward compatibility if needed, but we will switch to agraph in main app
+    pass

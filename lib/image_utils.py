@@ -1097,7 +1097,28 @@ def _cached_process_and_derive(
     }
 
 
-def micrograph_viewer(
+# Use st.fragment if available (Streamlit >= 1.37)
+if hasattr(st, "fragment"):
+    @st.fragment
+    def micrograph_viewer(
+        rln_folder: str,
+        image_files: List[str],
+        selected_filter: str = "gaussian",
+        default_gaussian: float = 0.5,
+        coord_paths: Optional[List[str]] = None,
+    ) -> None:
+        _micrograph_viewer_impl(rln_folder, image_files, selected_filter, default_gaussian, coord_paths)
+else:
+    def micrograph_viewer(
+        rln_folder: str,
+        image_files: List[str],
+        selected_filter: str = "gaussian",
+        default_gaussian: float = 0.5,
+        coord_paths: Optional[List[str]] = None,
+    ) -> None:
+        _micrograph_viewer_impl(rln_folder, image_files, selected_filter, default_gaussian, coord_paths)
+
+def _micrograph_viewer_impl(
     rln_folder: str,
     image_files: List[str],
     selected_filter: str = "gaussian",
@@ -3079,7 +3100,8 @@ def normalize_particle(arr: np.ndarray) -> np.ndarray:
     if not isinstance(arr, np.ndarray):
         raise TypeError("Input must be a NumPy array.")
 
-    arr_float = arr.astype(np.float32, copy=True)  # Work on a float copy
+    # Strictly enforce copy=True as per request
+    arr_float = arr.astype(np.float32, copy=True)
     min_val, max_val = arr_float.min(), arr_float.max()
     data_range = max_val - min_val
 

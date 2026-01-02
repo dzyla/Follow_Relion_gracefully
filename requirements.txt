@@ -21,3 +21,6 @@ holoviews
 bokeh
 opencv-python-headless
 biopython
+trimesh
+watchdog
+streamlit-agraph
