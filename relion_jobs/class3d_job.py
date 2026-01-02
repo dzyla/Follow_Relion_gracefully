@@ -429,7 +429,7 @@ def plot_class3d(rln_folder: str, nodes: List[str]) -> None:
             return
         else:
             with st.expander("Angular Distribution", expanded=True):
-                plot_type = st.radio("Select plot type:", ("3D", "2D"), index=0, horizontal=True)
+                plot_type = st.radio("Select plot type:", ("3D", "2D"), index=1, horizontal=True)
                 # Example: 3D sphere representation
                 # or you can call plot_angular_distribution(...) for 2D histograms
                 if plot_type == "3D":

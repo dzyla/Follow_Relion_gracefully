@@ -5,9 +5,8 @@ import re
 import traceback
 import logging
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 import io
-from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 import pandas as pd
@@ -15,6 +14,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 import mrcfile
+import gemmi
 
 # Import shared utilities - ensure these are accessible
 from lib.utils import get_note, report_error
@@ -65,122 +65,121 @@ def calculate_residue_mean_density(
     atoms_df: pd.DataFrame,
     volume_data: np.ndarray,
     voxel_size: float,
-    mode: str = "CA",  # Use "CA" for C-alpha only or "all" for all atoms per residue.
-    radius: float = 1.0,
     scaled: bool = False
 ) -> Dict[str, pd.Series]:
     """
-    Calculates the average map density for each residue per chain.
+    Calculates the mean density value in the experimental map for each residue.
 
     Parameters:
-      atoms_df: DataFrame with columns "x", "y", "z", "chain", "residue", "seq_id".
-      volume_data: 3D numpy array representing the cryo-EM map in pixel coordinates.
-      voxel_size: The voxel size (in angstrom per pixel). If atoms_df is not scaled, coordinates are in angstroms.
-      mode: "CA" to use only C-alpha atoms or "all" to use all atoms for the residue.
-      radius: Radius (in pixels) around the residue centroid to sample the map.
-      scaled: Boolean flag indicating whether the coordinates in atoms_df are already scaled to pixel units.
+      atoms_df: DataFrame with "x", "y", "z", "chain", "seq_id".
+      volume_data: Experimental map (3D numpy array, ZYX order).
+      voxel_size: Angstroms per pixel.
+      scaled: If True, atoms_df coords are in pixels. If False, in Angstroms.
 
     Returns:
-      A dictionary mapping chain identifiers to a Pandas Series. In each series the index is the residue identifier (seq_id)
-      and the value is the mean map density calculated from the volume.
+      Dict mapping chain -> pd.Series (index=seq_id, value=Mean Density).
     """
-    # Work on a copy of the atoms DataFrame
-    df = atoms_df.copy()
+    try:
+        # Work on a copy of the atoms DataFrame
+        df = atoms_df.copy()
 
-    # If the coordinates are not already in pixel space, scale them using the voxel_size.
-    if not scaled:
-        df["x"] = df["x"] / voxel_size
-        df["y"] = df["y"] / voxel_size
-        df["z"] = df["z"] / voxel_size
+        # Convert coordinates to pixel space if needed
+        if not scaled:
+            if voxel_size <= 0:
+                logger.error("Invalid voxel size.")
+                return {}
+            df["x"] = df["x"] / voxel_size
+            df["y"] = df["y"] / voxel_size
+            df["z"] = df["z"] / voxel_size
+        
+        # Round coordinates to nearest integer for array indexing
+        df["ix"] = np.rint(df["x"]).astype(int)
+        df["iy"] = np.rint(df["y"]).astype(int)
+        df["iz"] = np.rint(df["z"]).astype(int)
 
-    # Group the DataFrame by chain and residue (using the 'seq_id' as the residue identifier)
-    grouped = df.groupby(["chain", "seq_id"])
+        # Filter out atoms outside the volume bounds
+        nz, ny, nx = volume_data.shape
+        mask = (
+            (df["ix"] >= 0) & (df["ix"] < nx) &
+            (df["iy"] >= 0) & (df["iy"] < ny) &
+            (df["iz"] >= 0) & (df["iz"] < nz)
+        )
+        valid_df = df[mask].copy()
+        
+        if len(valid_df) < len(df):
+            logger.warning(f"Filtered {len(df) - len(valid_df)} atoms outside volume bounds.")
 
-    # Precompute relative voxel offsets within a sphere of given radius.
-    offsets = []
-    r_int = int(np.ceil(radius))
-    for dx in range(-r_int, r_int+1):
-        for dy in range(-r_int, r_int+1):
-            for dz in range(-r_int, r_int+1):
-                if np.sqrt(dx**2 + dy**2 + dz**2) <= radius:
-                    offsets.append((dx, dy, dz))
-    offsets = np.array(offsets)
+        if valid_df.empty:
+            logger.warning("No valid atoms inside volume bounds.")
+            return {}
 
-    shape = volume_data.shape  # Expect shape (nx, ny, nz)
+        # Extract density values
+        # mrcfile data is (Z, Y, X) -> volume_data[z, y, x]
+        valid_df["density"] = volume_data[valid_df["iz"], valid_df["iy"], valid_df["ix"]]
 
-    def compute_density_for_group(name_group: Tuple[Tuple[Any, Any], pd.DataFrame]):
-        """
-        For one residue group, compute the centroid of the coordinates and then
-        average the map density values in the volume within the spherical neighborhood.
-        """
-        name, group = name_group
-        # Compute the centroid of the coordinates for this residue.
-        # Use mean instead of sum for centroid
-        centroid = group[["x", "y", "z"]].mean().values
-        # Round the centroid to get indices for the volume.
-        idx = np.rint(centroid).astype(int)
+        # Group by residue and calculate mean
+        grouped = valid_df.groupby(["chain", "seq_id"])["density"].mean()
 
-        vals = []
-        for off in offsets:
-            pt = idx + off
-            if (
-                pt[0] >= 0 and pt[0] < shape[0] and
-                pt[1] >= 0 and pt[1] < shape[1] and
-                pt[2] >= 0 and pt[2] < shape[2]
-            ):
-                vals.append(volume_data[pt[0], pt[1], pt[2]])
+        # Organize into the return format
+        results = {}
+        for (chain, _), _ in grouped.items(): # Iterate over keys to identify chains
+             # Re-select allows simpler handling, though iterating over groupby obj directly is better
+             pass
+        
+        # Cleaner way to build the dictionary
+        for chain_id in valid_df["chain"].unique():
+            chain_group = grouped[chain_id]
+            if not chain_group.empty:
+                results[str(chain_id)] = chain_group.sort_index()
 
-        if vals:
-            return name, np.mean(vals)
-        else:
-            return name, np.nan
+        return results
 
-    # Process each residue group using threads for speed.
-    results = {}
-    # Use ThreadPoolExecutor
-    with ThreadPoolExecutor() as executor:
-        for name, mean_val in executor.map(compute_density_for_group, grouped):
-            chain, seq_id = name
-            if chain not in results:
-                results[chain] = {}
-            results[chain][seq_id] = mean_val
+    except Exception as e:
+        logger.error(f"Error calculating residue mean density: {e}\n{traceback.format_exc()}")
+        return {}
 
-    # Convert each chain's dictionary into a sorted Pandas Series.
-    density_series = {}
-    for chain, d in results.items():
-        s = pd.Series(d)
-        s.sort_index(inplace=True)
-        density_series[chain] = s
-
-    return density_series
 
 def plot_residue_density_ui(
     atoms_df: pd.DataFrame,
     volume_data: np.ndarray,
     voxel_size: float,
+    cif_path: str,
+    volume_path: str,
     mode: str = "CA",
-    radius: float = 1.0,
-    scaled: bool = False
+    radius: float = 3.0,
+    scaled: bool = False,
+    volume_threshold: Optional[float] = None
 ) -> None:
     """
-    Calculates the mean map density per residue and displays a Streamlit user interface.
+    Calculates and plots the mean map density per residue.
     """
-    st.subheader("Per-Residue Density Metrics")
+    st.subheader("Per-Residue Mean Map Density")
 
     col_opt, col_go = st.columns([3, 1])
     with col_opt:
-        calc_density = st.checkbox("Calculate & Plot Per-Residue Density", key="calc_res_dens")
-
+        calc_density = st.checkbox("Calculate & Plot Mean Map Density", key="calc_res_dens")
+        
     if calc_density:
-        with st.spinner("Calculating residue densities..."):
-            density_data = calculate_residue_mean_density(
-                atoms_df, volume_data, voxel_size, mode=mode, radius=radius, scaled=scaled
-            )
+        density_data = None
+        # Cache the data
+        cache_key = f"mean_density_data_{cif_path}_{volume_path}"
+        if cache_key in st.session_state:
+            density_data = st.session_state[cache_key]
+        else:
+            with st.spinner("Calculating mean density per residue..."):
+                density_data = calculate_residue_mean_density(
+                    atoms_df, volume_data, voxel_size, scaled=scaled
+                )
+                st.session_state[cache_key] = density_data
 
         if not density_data:
-            st.warning("No density data calculated.")
+            logger.warning("No density data calculated.")
+            st.warning("No density data calculated (check logs).")
             return
 
+        # Calculate global map statistics for context
+        map_mean = float(np.mean(volume_data))
+        
         # Streamlit UI
         col1, col2 = st.columns([1, 4])
         chain_options = list(density_data.keys())
@@ -191,29 +190,64 @@ def plot_residue_density_ui(
             series = density_data[selected_chain]
 
             fig = go.Figure()
+            
+            # 1. Residue Density Line
             fig.add_trace(
                 go.Scatter(
                     x=series.index,
                     y=series.values,
                     mode="lines+markers",
-                    name="Mean Density",
+                    name="Residue Mean Density",
                     line=dict(color='cyan')
                 )
             )
 
+            # 2. Global Map Mean Line
+            fig.add_trace(
+                go.Scatter(
+                    x=[series.index.min(), series.index.max()],
+                    y=[map_mean, map_mean],
+                    mode="lines",
+                    name="Global Map Mean",
+                    line=dict(color='green', dash='dash'),
+                    visible="legendonly" # Hide by default to prevent squishing
+                )
+            )
+            
+            # 3. Volume Threshold Line (if provided)
+            if volume_threshold is not None:
+                fig.add_trace(
+                    go.Scatter(
+                        x=[series.index.min(), series.index.max()],
+                        y=[volume_threshold, volume_threshold],
+                        mode="lines",
+                        name="Map Threshold (Iso)",
+                        line=dict(color='white', dash='dot'),
+                        visible="legendonly" # Hide by default to prevent squishing
+                    )
+                )
+
+            # Calculate dynamic y-axis range based on the data series
+            y_min = series.min()
+            y_max = series.max()
+            y_padding = (y_max - y_min) * 0.1 if y_max != y_min else 0.1
+            
             fig.update_layout(
-                title=f"Density Fit for Chain {selected_chain}",
+                title=f"Mean Map Density for Chain {selected_chain}",
                 xaxis_title="Residue ID",
                 yaxis_title="Mean Density",
+                yaxis_range=[y_min - y_padding, y_max + y_padding], # Force focus on data
                 height=500,
                 template="plotly_dark",
                 hovermode="x unified"
             )
             col2.plotly_chart(fig, use_container_width=True)
 
-            # Show stats
             with st.expander("Density Stats"):
                 st.write(series.describe())
+                st.write(f"**Global Map Mean:** {map_mean:.4f}")
+                if volume_threshold is not None:
+                    st.write(f"**Current Iso-threshold:** {volume_threshold:.4f}")
 
 
 def _read_cif_file(cif_path: str) -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, str]]]:
@@ -593,6 +627,133 @@ def overlay_plots_plotly(atom_fig: Optional[go.Figure], volume_fig: Optional[go.
     return combined_fig
 
 
+def calculate_pairwise_alignments(sequences: Dict[str, str], min_len: int = 0) -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, str]]]:
+    """
+    Calculates pairwise local alignment scores for chains longer than min_len.
+    Returns a symmetric DataFrame of scores and a dictionary of alignment strings for unique pairs.
+    """
+    try:
+        from Bio import Align
+    except ImportError:
+        st.error("Biopython is not installed. Please install it to use this feature (pip install biopython).")
+        logger.error("Biopython not installed; cannot perform pairwise alignments.")
+        return None, None
+    
+    # Filter chains by length FIRST
+    chain_ids = sorted([cid for cid, seq in sequences.items() if len(seq) >= min_len])
+    n = len(chain_ids)
+    
+    if n < 2:
+        st.warning(f"Not enough chains with length >= {min_len} residues for alignment.")
+        return None, None
+
+    scores = np.zeros((n, n))
+    alignments_text = {}
+    
+    aligner = Align.PairwiseAligner()
+    aligner.mode = 'local'
+    # Default scoring: match=1, mismatch=0, gap_open=0, gap_extend=0 is typical default for some, 
+    # but PairwiseAligner defaults might vary. 
+    # Usually we want some penalty for gaps.
+    # Let's trust default local alignment for similarity check.
+    
+    # Pre-calculate self-scores for normalization
+    self_scores = {}
+    for cid in chain_ids:
+        self_scores[cid] = aligner.score(sequences[cid], sequences[cid])
+
+    for i in range(n):
+        for j in range(n):
+            id1, id2 = chain_ids[i], chain_ids[j]
+            seq1, seq2 = sequences[id1], sequences[id2]
+            
+            if i > j:
+                scores[i, j] = scores[j, i]
+                continue
+            
+            # Score
+            raw_score = aligner.score(seq1, seq2)
+            
+            # Normalize: raw_score / max(self_score1, self_score2) * 100
+            # Using max means the score is relative to the longer/more complex chain.
+            denom = max(self_scores[id1], self_scores[id2])
+            norm_score = (raw_score / denom * 100.0) if denom > 0 else 0.0
+            
+            scores[i, j] = norm_score
+            
+            # Text alignment for unique pairs (excluding self-alignment for text)
+            if i < j:
+                # Get the best alignment safely
+                alignments = aligner.align(seq1, seq2)
+                if alignments:
+                    alignment = alignments[0]
+                    alignments_text[f"{id1} vs {id2}"] = str(alignment)
+                else:
+                    alignments_text[f"{id1} vs {id2}"] = "No alignment found."
+
+    df_scores = pd.DataFrame(scores, index=chain_ids, columns=chain_ids)
+    return df_scores, alignments_text
+
+
+def plot_pairwise_alignment_ui(sequences: Dict[str, str]) -> None:
+    """
+    Renders the pairwise sequence alignment UI.
+    """
+    if not sequences or len(sequences) < 2:
+        return
+
+    with st.expander("Pairwise Sequence Alignment", expanded=False):
+        st.write("Pairwise local alignment similarity (%) between chains. Normalized by theoretical max score.")
+        
+        # Calculate min/max length for slider bounds
+        all_lens = [len(s) for s in sequences.values()]
+        min_seq_len = min(all_lens) if all_lens else 0
+        max_seq_len = max(all_lens) if all_lens else 100
+        
+        # Slider for filtering short chains
+        min_chain_len = st.slider(
+            "Minimum Chain Length Filter", 
+            min_value=0, 
+            max_value=max_seq_len, 
+            value=min(10, max_seq_len), # Default to 10 or max if max < 10
+            help="Chains shorter than this will be excluded from the alignment analysis."
+        )
+
+        with st.spinner("Calculating pairwise alignments..."):
+            df_scores, alignments_text = calculate_pairwise_alignments(sequences, min_len=min_chain_len)
+        
+        if df_scores is None:
+            return
+
+        # Plot Heatmap
+        # Adjust height based on number of chains to keep squares square-ish
+        heatmap_height = max(400, 40 * len(df_scores))
+        
+        fig = px.imshow(
+            df_scores,
+            text_auto=".0f",
+            aspect="equal", # Make it a square
+            color_continuous_scale="blues",
+            title="Pairwise Sequence Similarity (%)",
+            labels=dict(x="Chain", y="Chain", color="Similarity (%)")
+        )
+        fig.update_layout(height=heatmap_height)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Details
+        if alignments_text:
+            if st.checkbox("Show Alignment Details (Text)"):
+                st.write("Pairwise alignments for different chains:")
+                
+                # Create a list of options for the selectbox
+                pair_options = list(alignments_text.keys())
+                selected_pair = st.selectbox("Select Chain Pair", pair_options)
+                
+                if selected_pair:
+                    st.markdown(f"**{selected_pair}**")
+                    st.code(alignments_text[selected_pair], language="text")
+
+
 # --- Main Function ---
 def plot_modelangelo(folder: str, node_files: List[str]) -> None:
     """Main Streamlit function to plot ModelAngelo job outputs with correct scaling."""
@@ -804,8 +965,20 @@ def plot_modelangelo(folder: str, node_files: List[str]) -> None:
                 scaling_info["applied"] = False
 
     if volume_enabled and volume_data is not None and ca_atoms_pixels is not None:
-        with st.expander("Residue Density Analysis", expanded=False):
-            plot_residue_density_ui(ca_atoms_pixels, volume_data, voxel_size, mode="CA", radius=1.5, scaled=True)
+        plot_residue_density_ui(
+            ca_atoms_pixels, 
+            volume_data, 
+            voxel_size, 
+            cif_path=cif_abs_path, 
+            volume_path=volume_path_abs, 
+            radius=3.0, 
+            scaled=True,
+            volume_threshold=volume_threshold
+        )
+
+    # --- Pairwise Sequence Alignment ---
+    if sequences:
+        plot_pairwise_alignment_ui(sequences)
 
     # --- Plotting ---
     st.markdown("---")

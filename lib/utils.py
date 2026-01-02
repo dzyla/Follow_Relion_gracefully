@@ -1327,13 +1327,13 @@ def interactive_scatter_plot(
                     if plot_type == "3D Scatter" and coord_system == "Cartesian":
                         log_z = ctrl[2].checkbox("Log Z", key=f"{title_prefix}_logz")
 
-                    if allow_sampling and len(df_original) > 1:
+                    if allow_sampling and len(df) > 1:
                         slider_col = ctrl[-1]
                         rows_to_plot = slider_col.slider(
-                            f"Max points (total {len(df_original)})",
-                            min_value=1 if len(df_original) <= 100 else 100,
-                            max_value=len(df_original),
-                            value=min(max_rows_default, len(df_original)),
+                            f"Max points (total {len(df)})",
+                            min_value=1 if len(df) <= 100 else 100,
+                            max_value=len(df),
+                            value=min(max_rows_default, len(df)),
                             key=f"{title_prefix}_sample_perf",
                         )
                     st.form_submit_button("Update Plot")
@@ -1344,13 +1344,13 @@ def interactive_scatter_plot(
                 if plot_type == "3D Scatter" and coord_system == "Cartesian":
                     log_z = ctrl[2].checkbox("Log Z", key=f"{title_prefix}_logz")
 
-                if allow_sampling and len(df_original) > 1:
+                if allow_sampling and len(df) > 1:
                     slider_col = ctrl[-1]
                     rows_to_plot = slider_col.slider(
-                        f"Max points (total {len(df_original)})",
-                        min_value=1 if len(df_original) <= 100 else 100,
-                        max_value=len(df_original),
-                        value=min(max_rows_default, len(df_original)),
+                        f"Max points (total {len(df)})",
+                        min_value=1 if len(df) <= 100 else 100,
+                        max_value=len(df),
+                        value=min(max_rows_default, len(df)),
                         key=f"{title_prefix}_sample",
                     )
 

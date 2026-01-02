@@ -20,3 +20,4 @@ datashader
 holoviews
 bokeh
 opencv-python-headless
+biopython
