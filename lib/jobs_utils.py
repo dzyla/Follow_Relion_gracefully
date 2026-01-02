@@ -261,9 +261,13 @@ def execute_relion_job(selected_job: str, folder: str, node_files: List[str]) ->
                 action() # Call the lambda function
                 job_type_found = True
                 break # Stop after first match
-            except IndexError:
-                 st.error(f"Error executing '{job_type}': Not enough node files provided.")
-                 logger.error(f"IndexError for job {selected_job}: Expected more node files. Got: {node_files}")
+            except IndexError as idx_err:
+                 if not node_files:
+                     st.error(f"Error executing '{job_type}': No node files provided.")
+                     logger.error(f"IndexError for job {selected_job}: No node files provided. {idx_err}")
+                 else:
+                     report_error(idx_err, f"IndexError executing action for job type {job_type}")
+                     st.error(f"An processing error occurred for '{job_type}'. See logs.")
                  job_type_found = True # Mark as found but failed
                  break
             except FileNotFoundError as fnf_err:

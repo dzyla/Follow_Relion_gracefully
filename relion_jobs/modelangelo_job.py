@@ -5,7 +5,7 @@ import re
 import traceback
 import logging
 from datetime import datetime
-from typing import List, Dict, Optional, Tuple
+from typing import List, Dict, Optional, Tuple, Any
 import io
 
 import numpy as np
@@ -14,6 +14,7 @@ import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
 import mrcfile
+import gemmi
 
 # Import shared utilities - ensure these are accessible
 from lib.utils import get_note, report_error
@@ -59,152 +60,198 @@ def _extract_v_parameter(note_content: str) -> Optional[str]:
     logger.warning("Could not find '-v <volume_path>' in note content.")
     return None
 
-## need more work
-# def calculate_residue_mean_density(
-#     atoms_df: pd.DataFrame,
-#     volume_data: np.ndarray,
-#     voxel_size: float,
-#     mode: str = "CA",  # Use "CA" for C-alpha only or "all" for all atoms per residue.
-#     radius: float = 1.0,
-#     scaled: bool = False
-# ) -> Dict[str, pd.Series]:
-#     """
-#     Calculates the average map density for each residue per chain.
-    
-#     Parameters:
-#       atoms_df: DataFrame with columns "x", "y", "z", "chain", "residue", "seq_id".
-#       volume_data: 3D numpy array representing the cryo-EM map in pixel coordinates.
-#       voxel_size: The voxel size (in angstrom per pixel). If atoms_df is not scaled, coordinates are in angstroms.
-#       mode: "CA" to use only C-alpha atoms or "all" to use all atoms for the residue.
-#       radius: Radius (in pixels) around the residue centroid to sample the map.
-#       scaled: Boolean flag indicating whether the coordinates in atoms_df are already scaled to pixel units.
-    
-#     Returns:
-#       A dictionary mapping chain identifiers to a Pandas Series. In each series the index is the residue identifier (seq_id)
-#       and the value is the mean map density calculated from the volume.
-#     """
-#     # Work on a copy of the atoms DataFrame
-#     df = atoms_df.copy()
 
-#     # If the coordinates are not already in pixel space, scale them using the voxel_size.
-#     if not scaled:
-#         df["x"] = df["x"] / voxel_size
-#         df["y"] = df["y"] / voxel_size
-#         df["z"] = df["z"] / voxel_size
+def calculate_residue_mean_density(
+    atoms_df: pd.DataFrame,
+    volume_data: np.ndarray,
+    voxel_size: float,
+    scaled: bool = False
+) -> Dict[str, pd.Series]:
+    """
+    Calculates the mean density value in the experimental map for each residue.
 
-#     # (Optionally, if mode "CA" is desired and if the DataFrame might include multiple atom types,
-#     # the caller should provide the correct DataFrame. For our purposes, we assume the provided df is already
-#     # filtered for C-alpha if mode=="CA".)
+    Parameters:
+      atoms_df: DataFrame with "x", "y", "z", "chain", "seq_id".
+      volume_data: Experimental map (3D numpy array, ZYX order).
+      voxel_size: Angstroms per pixel.
+      scaled: If True, atoms_df coords are in pixels. If False, in Angstroms.
 
-#     # Group the DataFrame by chain and residue (using the 'seq_id' as the residue identifier)
-#     grouped = df.groupby(["chain", "seq_id"])
+    Returns:
+      Dict mapping chain -> pd.Series (index=seq_id, value=Mean Density).
+    """
+    try:
+        # Work on a copy of the atoms DataFrame
+        df = atoms_df.copy()
 
-#     # Precompute relative voxel offsets within a sphere of given radius.
-#     offsets = []
-#     r_int = int(np.ceil(radius))
-#     for dx in range(-r_int, r_int+1):
-#         for dy in range(-r_int, r_int+1):
-#             for dz in range(-r_int, r_int+1):
-#                 if np.sqrt(dx**2 + dy**2 + dz**2) <= radius:
-#                     offsets.append((dx, dy, dz))
-#     offsets = np.array(offsets)
+        # Convert coordinates to pixel space if needed
+        if not scaled:
+            if voxel_size <= 0:
+                logger.error("Invalid voxel size.")
+                return {}
+            df["x"] = df["x"] / voxel_size
+            df["y"] = df["y"] / voxel_size
+            df["z"] = df["z"] / voxel_size
+        
+        # Round coordinates to nearest integer for array indexing
+        df["ix"] = np.rint(df["x"]).astype(int)
+        df["iy"] = np.rint(df["y"]).astype(int)
+        df["iz"] = np.rint(df["z"]).astype(int)
 
-#     def compute_density_for_group(name_group: Tuple[Tuple[Any, Any], pd.DataFrame]):
-#         """
-#         For one residue group, compute the centroid of the coordinates and then
-#         average the map density values in the volume within the spherical neighborhood.
-#         """
-#         name, group = name_group
-#         # Compute the centroid of the coordinates for this residue.
-#         centroid = group[["x", "y", "z"]].sum().values
-#         # Round the centroid to get indices for the volume.
-#         idx = np.rint(centroid).astype(int)
-#         vals = []
-#         shape = volume_data.shape  # Expect shape (nx, ny, nz)
-#         # For each pre-computed offset, get the corresponding map voxel if within bounds.
-#         for off in offsets:
-#             pt = idx + off
-#             if (
-#                 pt[0] >= 0 and pt[0] < shape[0] and
-#                 pt[1] >= 0 and pt[1] < shape[1] and
-#                 pt[2] >= 0 and pt[2] < shape[2]
-#             ):
-#                 vals.append(volume_data[pt[0], pt[1], pt[2]])
-#         if vals:
-#             return name, np.mean(vals)
-#         else:
-#             return name, np.nan
+        # Filter out atoms outside the volume bounds
+        nz, ny, nx = volume_data.shape
+        mask = (
+            (df["ix"] >= 0) & (df["ix"] < nx) &
+            (df["iy"] >= 0) & (df["iy"] < ny) &
+            (df["iz"] >= 0) & (df["iz"] < nz)
+        )
+        valid_df = df[mask].copy()
+        
+        if len(valid_df) < len(df):
+            logger.warning(f"Filtered {len(df) - len(valid_df)} atoms outside volume bounds.")
 
-#     # Process each residue group using threads for speed.
-#     results = {}
-#     with ThreadPoolExecutor() as executor:
-#         for name, mean_val in executor.map(compute_density_for_group, grouped):
-#             chain, seq_id = name
-#             if chain not in results:
-#                 results[chain] = {}
-#             results[chain][seq_id] = mean_val
+        if valid_df.empty:
+            logger.warning("No valid atoms inside volume bounds.")
+            return {}
 
-#     # Convert each chain's dictionary into a sorted Pandas Series.
-#     density_series = {}
-#     for chain, d in results.items():
-#         s = pd.Series(d)
-#         s.sort_index(inplace=True)
-#         density_series[chain] = s
+        # Extract density values
+        # mrcfile data is (Z, Y, X) -> volume_data[z, y, x]
+        valid_df["density"] = volume_data[valid_df["iz"], valid_df["iy"], valid_df["ix"]]
 
-#     return density_series
+        # Group by residue and calculate mean
+        grouped = valid_df.groupby(["chain", "seq_id"])["density"].mean()
 
-# def plot_residue_density_ui(
-#     atoms_df: pd.DataFrame,
-#     volume_data: np.ndarray,
-#     voxel_size: float,
-#     mode: str = "CA",
-#     radius: float = 1.0,
-#     scaled: bool = False
-# ) -> None:
-#     """
-#     Calculates the mean map density per residue and displays a Streamlit user interface.
-    
-#     The interface shows a selectbox (in the left column) for choosing a chain and a corresponding Plotly graph
-#     (in the right column) that plots the mean map density per residue (indexed by residue number).
-#     """
-#     # Calculate the density data per residue. This function is threaded for speed.
-#     density_data = calculate_residue_mean_density(
-#         atoms_df, volume_data, voxel_size, mode=mode, radius=radius, scaled=scaled
-#     )
-#     if not density_data:
-#         st.warning("No density data calculated.")
-#         return
+        # Organize into the return format
+        results = {}
+        for (chain, _), _ in grouped.items(): # Iterate over keys to identify chains
+             # Re-select allows simpler handling, though iterating over groupby obj directly is better
+             pass
+        
+        # Cleaner way to build the dictionary
+        for chain_id in valid_df["chain"].unique():
+            chain_group = grouped[chain_id]
+            if not chain_group.empty:
+                results[str(chain_id)] = chain_group.sort_index()
 
-#     # Streamlit UI: create two columns. Column 1 will hold the selectbox; Column 2 will show the plot.
-#     col1, col2 = st.columns([1, 4])
-#     chain_options = list(density_data.keys())
-#     with col1:
-#         selected_chain = st.selectbox("Select chain for residue density", chain_options)
-#     if selected_chain:
-#         series = density_data[selected_chain]
-#         fig = go.Figure()
-#         fig.add_trace(
-#             go.Scatter(
-#                 x=series.index,
-#                 y=series.values,
-#                 mode="lines+markers",
-#                 name=f"Chain {selected_chain}"
-#             )
-#         )
-#         fig.update_layout(
-#             title=f"Mean Map Density per Residue for Chain {selected_chain}",
-#             xaxis_title="Residue (seq_id)",
-#             yaxis_title="Mean Map Density",
-#             height=600,
-#             template="plotly_dark"
-#         )
-#         col2.plotly_chart(fig, use_container_width=True)
+        return results
+
+    except Exception as e:
+        logger.error(f"Error calculating residue mean density: {e}\n{traceback.format_exc()}")
+        return {}
+
+
+def plot_residue_density_ui(
+    atoms_df: pd.DataFrame,
+    volume_data: np.ndarray,
+    voxel_size: float,
+    cif_path: str,
+    volume_path: str,
+    mode: str = "CA",
+    radius: float = 3.0,
+    scaled: bool = False,
+    volume_threshold: Optional[float] = None
+) -> None:
+    """
+    Calculates and plots the mean map density per residue.
+    """
+    st.subheader("Per-Residue Mean Map Density")
+
+    col_opt, col_go = st.columns([3, 1])
+    with col_opt:
+        calc_density = st.checkbox("Calculate & Plot Mean Map Density", key="calc_res_dens")
+        
+    if calc_density:
+        density_data = None
+        # Cache the data
+        cache_key = f"mean_density_data_{cif_path}_{volume_path}"
+        if cache_key in st.session_state:
+            density_data = st.session_state[cache_key]
+        else:
+            with st.spinner("Calculating mean density per residue..."):
+                density_data = calculate_residue_mean_density(
+                    atoms_df, volume_data, voxel_size, scaled=scaled
+                )
+                st.session_state[cache_key] = density_data
+
+        if not density_data:
+            logger.warning("No density data calculated.")
+            st.warning("No density data calculated (check logs).")
+            return
+
+        # Calculate global map statistics for context
+        map_mean = float(np.mean(volume_data))
+        
+        # Streamlit UI
+        col1, col2 = st.columns([1, 4])
+        chain_options = list(density_data.keys())
+        with col1:
+            selected_chain = st.selectbox("Select chain", chain_options, key="res_dens_chain_sel")
+
+        if selected_chain:
+            series = density_data[selected_chain]
+
+            fig = go.Figure()
+            
+            # 1. Residue Density Line
+            fig.add_trace(
+                go.Scatter(
+                    x=series.index,
+                    y=series.values,
+                    mode="lines+markers",
+                    name="Residue Mean Density",
+                    line=dict(color='cyan')
+                )
+            )
+
+            # 2. Global Map Mean Line
+            fig.add_trace(
+                go.Scatter(
+                    x=[series.index.min(), series.index.max()],
+                    y=[map_mean, map_mean],
+                    mode="lines",
+                    name="Global Map Mean",
+                    line=dict(color='green', dash='dash'),
+                    visible="legendonly" # Hide by default to prevent squishing
+                )
+            )
+            
+            # 3. Volume Threshold Line (if provided)
+            if volume_threshold is not None:
+                fig.add_trace(
+                    go.Scatter(
+                        x=[series.index.min(), series.index.max()],
+                        y=[volume_threshold, volume_threshold],
+                        mode="lines",
+                        name="Map Threshold (Iso)",
+                        line=dict(color='white', dash='dot'),
+                        visible="legendonly" # Hide by default to prevent squishing
+                    )
+                )
+
+            # Calculate dynamic y-axis range based on the data series
+            y_min = series.min()
+            y_max = series.max()
+            y_padding = (y_max - y_min) * 0.1 if y_max != y_min else 0.1
+            
+            fig.update_layout(
+                title=f"Mean Map Density for Chain {selected_chain}",
+                xaxis_title="Residue ID",
+                yaxis_title="Mean Density",
+                yaxis_range=[y_min - y_padding, y_max + y_padding], # Force focus on data
+                height=500,
+                template="plotly_dark",
+                hovermode="x unified"
+            )
+            col2.plotly_chart(fig, use_container_width=True)
+
+            with st.expander("Density Stats"):
+                st.write(series.describe())
+                st.write(f"**Global Map Mean:** {map_mean:.4f}")
+                if volume_threshold is not None:
+                    st.write(f"**Current Iso-threshold:** {volume_threshold:.4f}")
 
 
 def _read_cif_file(cif_path: str) -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, str]]]:
     # --- Using the Pandas text parsing version ---
-    # [This function remains the same as the previous working version]
-    # ... (ensure the full function is here) ...
     col_names = []
     lines_to_skip = 0
     try:
@@ -366,8 +413,6 @@ def _read_cif_file(cif_path: str) -> Tuple[Optional[pd.DataFrame], Optional[Dict
 
 
 def _load_mrc_volume(mrc_path: str) -> Tuple[Optional[np.ndarray], Optional[np.ndarray], Optional[float]]:
-    # --- This function remains the same ---
-    # [Implementation from previous answer]
     try:
         with mrcfile.mmap(mrc_path, permissive=True) as mrc:
             volume_data = mrc.data.copy()
@@ -396,9 +441,6 @@ def _load_mrc_volume(mrc_path: str) -> Tuple[Optional[np.ndarray], Optional[np.n
 
 # --- Plotting Functions ---
 
-# ***************************************************************************
-# * MODIFIED plot_ca_atoms_plotly to accept axis units                      *
-# ***************************************************************************
 def plot_ca_atoms_plotly(ca_atoms_df: pd.DataFrame, axis_unit: str = "Å") -> Optional[go.Figure]:
     """Plots C-alpha atoms with hidden axis details (labels, ticks, numbers, grid lines)."""
     if ca_atoms_df is None or ca_atoms_df.empty:
@@ -504,13 +546,6 @@ def plot_ca_atoms_plotly(ca_atoms_df: pd.DataFrame, axis_unit: str = "Å") -> Op
     return fig
 
 
-# ***************************************************************************
-# * END OF MODIFIED plot_ca_atoms_plotly                                   *
-# ***************************************************************************
-
-# ***************************************************************************
-# * MODIFIED overlay_plots_plotly to accept axis units                      *
-# ***************************************************************************
 def overlay_plots_plotly(atom_fig: Optional[go.Figure], volume_fig: Optional[go.Figure], axis_unit: str = "px") -> go.Figure:
     """Overlays atom traces and volume trace into a NEW figure. Axis labels use the provided unit."""
     combined_fig = go.Figure()
@@ -591,14 +626,135 @@ def overlay_plots_plotly(atom_fig: Optional[go.Figure], volume_fig: Optional[go.
     logger.debug(f"Combined figure created with {len(combined_fig.data)} total traces.")
     return combined_fig
 
-# ***************************************************************************
-# * END OF MODIFIED overlay_plots_plotly                                    *
-# ***************************************************************************
+
+def calculate_pairwise_alignments(sequences: Dict[str, str], min_len: int = 0) -> Tuple[Optional[pd.DataFrame], Optional[Dict[str, str]]]:
+    """
+    Calculates pairwise local alignment scores for chains longer than min_len.
+    Returns a symmetric DataFrame of scores and a dictionary of alignment strings for unique pairs.
+    """
+    try:
+        from Bio import Align
+    except ImportError:
+        st.error("Biopython is not installed. Please install it to use this feature (pip install biopython).")
+        logger.error("Biopython not installed; cannot perform pairwise alignments.")
+        return None, None
+    
+    # Filter chains by length FIRST
+    chain_ids = sorted([cid for cid, seq in sequences.items() if len(seq) >= min_len])
+    n = len(chain_ids)
+    
+    if n < 2:
+        st.warning(f"Not enough chains with length >= {min_len} residues for alignment.")
+        return None, None
+
+    scores = np.zeros((n, n))
+    alignments_text = {}
+    
+    aligner = Align.PairwiseAligner()
+    aligner.mode = 'local'
+    # Default scoring: match=1, mismatch=0, gap_open=0, gap_extend=0 is typical default for some, 
+    # but PairwiseAligner defaults might vary. 
+    # Usually we want some penalty for gaps.
+    # Let's trust default local alignment for similarity check.
+    
+    # Pre-calculate self-scores for normalization
+    self_scores = {}
+    for cid in chain_ids:
+        self_scores[cid] = aligner.score(sequences[cid], sequences[cid])
+
+    for i in range(n):
+        for j in range(n):
+            id1, id2 = chain_ids[i], chain_ids[j]
+            seq1, seq2 = sequences[id1], sequences[id2]
+            
+            if i > j:
+                scores[i, j] = scores[j, i]
+                continue
+            
+            # Score
+            raw_score = aligner.score(seq1, seq2)
+            
+            # Normalize: raw_score / max(self_score1, self_score2) * 100
+            # Using max means the score is relative to the longer/more complex chain.
+            denom = max(self_scores[id1], self_scores[id2])
+            norm_score = (raw_score / denom * 100.0) if denom > 0 else 0.0
+            
+            scores[i, j] = norm_score
+            
+            # Text alignment for unique pairs (excluding self-alignment for text)
+            if i < j:
+                # Get the best alignment safely
+                alignments = aligner.align(seq1, seq2)
+                if alignments:
+                    alignment = alignments[0]
+                    alignments_text[f"{id1} vs {id2}"] = str(alignment)
+                else:
+                    alignments_text[f"{id1} vs {id2}"] = "No alignment found."
+
+    df_scores = pd.DataFrame(scores, index=chain_ids, columns=chain_ids)
+    return df_scores, alignments_text
+
+
+def plot_pairwise_alignment_ui(sequences: Dict[str, str]) -> None:
+    """
+    Renders the pairwise sequence alignment UI.
+    """
+    if not sequences or len(sequences) < 2:
+        return
+
+    with st.expander("Pairwise Sequence Alignment", expanded=False):
+        st.write("Pairwise local alignment similarity (%) between chains. Normalized by theoretical max score.")
+        
+        # Calculate min/max length for slider bounds
+        all_lens = [len(s) for s in sequences.values()]
+        min_seq_len = min(all_lens) if all_lens else 0
+        max_seq_len = max(all_lens) if all_lens else 100
+        
+        # Slider for filtering short chains
+        min_chain_len = st.slider(
+            "Minimum Chain Length Filter", 
+            min_value=0, 
+            max_value=max_seq_len, 
+            value=min(10, max_seq_len), # Default to 10 or max if max < 10
+            help="Chains shorter than this will be excluded from the alignment analysis."
+        )
+
+        with st.spinner("Calculating pairwise alignments..."):
+            df_scores, alignments_text = calculate_pairwise_alignments(sequences, min_len=min_chain_len)
+        
+        if df_scores is None:
+            return
+
+        # Plot Heatmap
+        # Adjust height based on number of chains to keep squares square-ish
+        heatmap_height = max(400, 40 * len(df_scores))
+        
+        fig = px.imshow(
+            df_scores,
+            text_auto=".0f",
+            aspect="equal", # Make it a square
+            color_continuous_scale="blues",
+            title="Pairwise Sequence Similarity (%)",
+            labels=dict(x="Chain", y="Chain", color="Similarity (%)")
+        )
+        fig.update_layout(height=heatmap_height)
+        st.plotly_chart(fig, use_container_width=True)
+        
+        # Details
+        if alignments_text:
+            if st.checkbox("Show Alignment Details (Text)"):
+                st.write("Pairwise alignments for different chains:")
+                
+                # Create a list of options for the selectbox
+                pair_options = list(alignments_text.keys())
+                selected_pair = st.selectbox("Select Chain Pair", pair_options)
+                
+                if selected_pair:
+                    st.markdown(f"**{selected_pair}**")
+                    st.code(alignments_text[selected_pair], language="text")
+
 
 # --- Main Function ---
-# ***************************************************************************
-# * MODIFIED plot_modelangelo for coordinate scaling and caching            *
-# ***************************************************************************
 def plot_modelangelo(folder: str, node_files: List[str]) -> None:
     """Main Streamlit function to plot ModelAngelo job outputs with correct scaling."""
     if not node_files:
@@ -690,25 +846,48 @@ def plot_modelangelo(folder: str, node_files: List[str]) -> None:
             disabled=not volume_enabled,
             help="Requires atom model to be loaded successfully." if not volume_enabled else None
         )
+
+        perf_mode = c1.checkbox("Slider performance mode", value=False, key=f"{job_id_key}_perf_mode")
+
         volume_threshold = 0.5
         volume_opacity = 0.5
         if show_volume and volume_enabled:
-            volume_threshold = c1.slider(
-                "Volume Threshold",
-                0.0,
-                1.0,
-                volume_threshold,
-                0.05,
-                key=f"{job_id_key}_vol_thresh"
-            )
-            volume_opacity = c1.slider(
-                "Volume Opacity",
-                0.0,
-                1.0,
-                volume_opacity,
-                0.05,
-                key=f"{job_id_key}_vol_opac"
-            )
+            if perf_mode:
+                with c1.form(key=f"{job_id_key}_vol_form"):
+                    volume_threshold = st.slider(
+                        "Volume Threshold",
+                        0.0,
+                        1.0,
+                        volume_threshold,
+                        0.05,
+                        key=f"{job_id_key}_vol_thresh"
+                    )
+                    volume_opacity = st.slider(
+                        "Volume Opacity",
+                        0.0,
+                        1.0,
+                        volume_opacity,
+                        0.05,
+                        key=f"{job_id_key}_vol_opac"
+                    )
+                    st.form_submit_button("Update Volume")
+            else:
+                volume_threshold = c1.slider(
+                    "Volume Threshold",
+                    0.0,
+                    1.0,
+                    volume_threshold,
+                    0.05,
+                    key=f"{job_id_key}_vol_thresh"
+                )
+                volume_opacity = c1.slider(
+                    "Volume Opacity",
+                    0.0,
+                    1.0,
+                    volume_opacity,
+                    0.05,
+                    key=f"{job_id_key}_vol_opac"
+                )
 
     # --- Load Volume Data ---
     volume_data, voxel_size, origin_angstrom = None, None, None
@@ -785,9 +964,22 @@ def plot_modelangelo(folder: str, node_files: List[str]) -> None:
                 logger.error("Scaling was marked applied, but pixel coordinates are missing! Re-applying.")
                 scaling_info["applied"] = False
 
-    # if volume_enabled and volume_data is not None and ca_atoms_pixels is not None:
-    #     plot_residue_density_ui(ca_atoms_angstrom, volume_data, voxel_size, mode="CA", radius=1.0, scaled=True)
-    
+    if volume_enabled and volume_data is not None and ca_atoms_pixels is not None:
+        plot_residue_density_ui(
+            ca_atoms_pixels, 
+            volume_data, 
+            voxel_size, 
+            cif_path=cif_abs_path, 
+            volume_path=volume_path_abs, 
+            radius=3.0, 
+            scaled=True,
+            volume_threshold=volume_threshold
+        )
+
+    # --- Pairwise Sequence Alignment ---
+    if sequences:
+        plot_pairwise_alignment_ui(sequences)
+
     # --- Plotting ---
     st.markdown("---")
     plot_placeholder = st.empty()

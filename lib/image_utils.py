@@ -17,6 +17,7 @@ import matplotlib.pyplot as plt
 import mrcfile
 import numpy as np
 import pandas as pd
+import polars as pl
 import plotly.express as px
 import plotly.figure_factory as ff
 import plotly.graph_objects as go
@@ -29,6 +30,11 @@ import streamlit as st
 
 import tifffile
 import mcubes  # for marching cubes algorithm
+
+try:
+    import cv2
+except ImportError:
+    cv2 = None
 
 # Local Imports
 from lib.utils import get_values_from_first_key, parse_star
@@ -136,7 +142,7 @@ def normalize(
 
 def blur(image: np.ndarray, sigma: float) -> np.ndarray:
     """
-    Applies Gaussian blur to an image.
+    Applies Gaussian blur to an image using OpenCV if available, else scipy.
 
     Args:
         image: Input NumPy array.
@@ -150,7 +156,12 @@ def blur(image: np.ndarray, sigma: float) -> np.ndarray:
     if sigma <= 0:
         return image  # No blurring needed
     try:
-        return gaussian_filter(image, sigma=sigma)
+        if cv2 is not None:
+            # OpenCV GaussianBlur uses ksize (must be odd) and sigmaX/Y.
+            # If ksize is (0,0), it computes it from sigma.
+            return cv2.GaussianBlur(image, (0, 0), sigmaX=sigma, sigmaY=sigma)
+        else:
+            return gaussian_filter(image, sigma=sigma)
     except Exception as exc:
         report_error(exc)
         raise
@@ -158,12 +169,12 @@ def blur(image: np.ndarray, sigma: float) -> np.ndarray:
 
 def scale_image(image: np.ndarray, scale_factor: float, order: int = 1) -> np.ndarray:
     """
-    Resizes (scales) an image using spline interpolation.
+    Resizes (scales) an image using OpenCV if available (faster), else skimage.
 
     Args:
         image: Input NumPy array.
         scale_factor: Factor by which to scale (e.g., 0.5 for downsampling by 2).
-        order: The order of spline interpolation (0=Nearest, 1=Bilinear, 3=Bicubic).
+        order: The order of spline interpolation (ignored if using OpenCV, defaults to linear/cubic).
 
     Returns:
         The scaled image array, preserving the original intensity range.
@@ -173,16 +184,22 @@ def scale_image(image: np.ndarray, scale_factor: float, order: int = 1) -> np.nd
     if abs(scale_factor - 1.0) < 1e-6:
         return image  # No scaling needed
     try:
-        # Anti-aliasing is important for downsampling
-        anti_aliasing = scale_factor < 1.0
-        return transform.rescale(
-            image,
-            scale_factor,
-            order=order,
-            preserve_range=True,
-            anti_aliasing=anti_aliasing,
-            mode="reflect",  # Use reflect mode for padding
-        )
+        if cv2 is not None:
+            new_width = int(image.shape[1] * scale_factor)
+            new_height = int(image.shape[0] * scale_factor)
+            interpolation = cv2.INTER_LINEAR if scale_factor > 1 else cv2.INTER_AREA
+            return cv2.resize(image, (new_width, new_height), interpolation=interpolation)
+        else:
+            # Anti-aliasing is important for downsampling
+            anti_aliasing = scale_factor < 1.0
+            return transform.rescale(
+                image,
+                scale_factor,
+                order=order,
+                preserve_range=True,
+                anti_aliasing=anti_aliasing,
+                mode="reflect",  # Use reflect mode for padding
+            )
     except Exception as exc:
         report_error(exc)
         raise
@@ -602,13 +619,26 @@ def process_coordinates(
             return filtered_picks
 
         star_data = parse_star(coord_path)
-        coords_df = get_values_from_first_key(
-            star_data
-        )  # Assumes first block has coords
+        coords_val = get_values_from_first_key(star_data) # Assumes first block has coords
 
-        if coords_df is None or coords_df.empty:
+        if coords_val is None:
             logger.warning(f"No coordinate data found in {coord_path}")
             return filtered_picks
+
+        # Convert to Pandas for compatibility with existing logic
+        if isinstance(coords_val, pl.LazyFrame):
+            coords_df = coords_val.collect().to_pandas()
+        elif isinstance(coords_val, pl.DataFrame):
+            coords_df = coords_val.to_pandas()
+        elif isinstance(coords_val, pd.DataFrame):
+            coords_df = coords_val
+        else:
+             logger.warning(f"Unknown dataframe type in process_coordinates: {type(coords_val)}")
+             return filtered_picks
+
+        if coords_df.empty:
+             logger.warning(f"Coordinate dataframe is empty in {coord_path}")
+             return filtered_picks
 
         fom_col = "_rlnAutopickFigureOfMerit"
         if fom_col not in coords_df.columns:
@@ -1172,10 +1202,10 @@ def micrograph_viewer(
     #  Layout (with or without extra panel)
     # ─────────────────────────────────────────────────────────────────────
     if cfg["display_mode"] == "Micrograph only":
-        col_ctrl, _, col_img = st.columns([0.7, 0.1, 2.2])
+        col_ctrl, col_img = st.columns([1, 4])
         col_extra = None
     else:
-        col_ctrl, _, col_img, col_extra = st.columns([0.7, 0.1, 1.1, 1.1])
+        col_ctrl, col_img, col_extra = st.columns([1, 2, 2])
 
     # ─────────────────────────────────────────────────────────────────────
     #  Control panel
@@ -1254,15 +1284,40 @@ def micrograph_viewer(
 
         # Processing options
         with st.expander("Processing Options"):
-            cfg["scaled_height"] = st.slider("Display height", 128, 4096, cfg["scaled_height"], 128)
-            cfg["clip"] = st.slider("Clip percentiles", 0.0, 100.0, cfg["clip"], 0.1)
-            cfg["contrast"] = st.selectbox(
-                "Contrast",
-                ("None", "Gamma", "Histogram Equalization", "Adaptive"),
-                index=("None", "Gamma", "Histogram Equalization", "Adaptive").index(cfg["contrast"]),
-            )
-            if cfg["contrast"] == "Gamma":
-                cfg["gamma"] = st.slider("Gamma", 0.1, 3.0, cfg["gamma"], 0.05)
+            # Slider performance mode
+            perf_mode = st.checkbox("Slider performance mode", value=False, help="Update only on release or via button.")
+
+            def render_slider(label, min_v, max_v, default_v, step=None, key=None):
+                return st.slider(label, min_v, max_v, default_v, step, key=key)
+
+            # In performance mode, we could use a form, but that blocks everything.
+            # Streamlit sliders already update on release. The issue described ("slider location jumps")
+            # often happens when the app re-runs while dragging.
+            # A simple fix is to put heavy controls in a form or just advise the user.
+            # Let's try offering a manual "Update" button approach for heavy processing if requested.
+
+            if perf_mode:
+                with st.form(key=f"{viewer_prefix}processing_form"):
+                    cfg["scaled_height"] = st.slider("Display height", 128, 4096, cfg["scaled_height"], 128)
+                    cfg["clip"] = st.slider("Clip percentiles", 0.0, 100.0, cfg["clip"], 0.1)
+                    cfg["contrast"] = st.selectbox(
+                        "Contrast",
+                        ("None", "Gamma", "Histogram Equalization", "Adaptive"),
+                        index=("None", "Gamma", "Histogram Equalization", "Adaptive").index(cfg["contrast"]),
+                    )
+                    if cfg["contrast"] == "Gamma":
+                        cfg["gamma"] = st.slider("Gamma", 0.1, 3.0, cfg["gamma"], 0.05)
+                    st.form_submit_button("Update View")
+            else:
+                cfg["scaled_height"] = st.slider("Display height", 128, 4096, cfg["scaled_height"], 128)
+                cfg["clip"] = st.slider("Clip percentiles", 0.0, 100.0, cfg["clip"], 0.1)
+                cfg["contrast"] = st.selectbox(
+                    "Contrast",
+                    ("None", "Gamma", "Histogram Equalization", "Adaptive"),
+                    index=("None", "Gamma", "Histogram Equalization", "Adaptive").index(cfg["contrast"]),
+                )
+                if cfg["contrast"] == "Gamma":
+                    cfg["gamma"] = st.slider("Gamma", 0.1, 3.0, cfg["gamma"], 0.05)
 
         # ── Picks options ────────────────────────────────────────────────
         coords_df = pd.DataFrame()
@@ -1276,7 +1331,17 @@ def micrograph_viewer(
                     display_picks = cfg["display_picks"]
                     if display_picks:
                         try:
-                            coords_df = get_values_from_first_key(parse_star(coord_full))
+                            coords_val = get_values_from_first_key(parse_star(coord_full))
+                            if isinstance(coords_val, pl.LazyFrame):
+                                coords_df = coords_val.collect().to_pandas()
+                            elif isinstance(coords_val, pl.DataFrame):
+                                coords_df = coords_val.to_pandas()
+                            elif isinstance(coords_val, pd.DataFrame):
+                                coords_df = coords_val
+                            elif coords_val is None:
+                                coords_df = pd.DataFrame()
+                            else:
+                                coords_df = pd.DataFrame()
                         except Exception as exc:
                             report_error("STAR parse error", exc)
                             st.error(f"Picks error: {exc}")
@@ -1403,7 +1468,10 @@ def micrograph_viewer(
             fig.tight_layout(pad=0)
             st.pyplot(fig)
         else:
-            st.image(processed_img, clamp=True, caption=caption)
+            # use_container_width=False prevents it from taking full width if image is small,
+            # but usually we want it to fit the column. The user said "images ... are massive".
+            # If we set specific width, it might help.
+            st.image(processed_img, clamp=True, caption=caption, use_container_width=True)
 
     # ─────────────────────────────────────────────────────────────────────
     #  Extra panel

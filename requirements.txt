@@ -14,3 +14,10 @@ stqdm
 PyMCubes
 altair
 morphosamplers
+polars
+starfile-rs
+datashader
+holoviews
+bokeh
+opencv-python-headless
+biopython

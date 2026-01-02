@@ -172,29 +172,80 @@ def plot_locres(nodes: List[str], folder: str, job: str) -> None:
         loc_float[loc == 0] = np.nan
 
         # ── UI controls ───────────────────────────────────────────────────
-        view = st.radio("View mode:", ("3-D isosurface", "2-D slices"), horizontal=True)
+        view_cols = st.columns([2, 2])
+        view = view_cols[0].radio("View mode:", ("3-D isosurface", "2-D slices"), horizontal=True)
+        perf_mode = view_cols[1].checkbox("Slider performance mode", value=False, help="Update only on release or via button.")
 
         # common resolution-ceiling slider
         finite_all = loc_float[np.isfinite(loc_float)]
         res_min, res_max = float(finite_all.min()), float(finite_all.max())
+
+        # UI State Variables (initialize with defaults if not present)
+        # Note: We rely on Streamlit's widget state mainly.
+
+        # Setup Layout
         col1, col2, col3, col4 = st.columns([1, 2, 1, 1])
-        with col1:
-            res_clip = st.slider(
-                "Max resolution (Å)",
-                min_value=round(res_min, 1),
-                max_value=round(res_max, 1),
-                value=round(res_max, 1),
-                step=0.1,
-                help="Values above this are clipped (set equal to the ceiling).",
-            )
+
+        # Define update function for form
+        # But wait, local variables like res_clip need to be accessible.
+        # We can use a form context for the sliders if perf_mode is True.
+
+        res_clip = round(res_max, 1) # Default
+        idx = (min(loc.shape) - 1) // 2
+        thr = 0.5
+        dim = 200
+
+        if perf_mode:
+            with st.form(key=f"{job}_perf_form"):
+                col_f1, col_f2, col_f3, col_f4 = st.columns([1, 2, 1, 1])
+                with col_f1:
+                    res_clip = st.slider(
+                        "Max resolution (Å)",
+                        min_value=round(res_min, 1),
+                        max_value=round(res_max, 1),
+                        value=round(res_max, 1),
+                        step=0.1,
+                        help="Values above this are clipped (set equal to the ceiling).",
+                    )
+
+                if view == "2-D slices":
+                    with col_f2:
+                        idx = st.slider(
+                            "Slice index", 0, min(loc.shape) - 1, (min(loc.shape) - 1) // 2, key=f"{job}_idx_perf"
+                        )
+                else: # 3-D
+                    with col_f2:
+                        thr = st.slider("Relative threshold", 0.05, 0.95, 0.5, 0.01, key=f"{job}_thr_perf")
+                    with col_f3:
+                        dim = st.slider("Max dimension (px)", 80, 256, 200, 16, key=f"{job}_dim_perf")
+
+                st.form_submit_button("Update View")
+        else:
+            with col1:
+                res_clip = st.slider(
+                    "Max resolution (Å)",
+                    min_value=round(res_min, 1),
+                    max_value=round(res_max, 1),
+                    value=round(res_max, 1),
+                    step=0.1,
+                    help="Values above this are clipped (set equal to the ceiling).",
+                )
+            if view == "2-D slices":
+                with col2:
+                    idx = st.slider(
+                        "Slice index", 0, min(loc.shape) - 1, (min(loc.shape) - 1) // 2, key=f"{job}_idx"
+                    )
+            else: # 3-D
+                with col2:
+                    thr = st.slider("Relative threshold", 0.05, 0.95, 0.5, 0.01, key=f"{job}_thr")
+                with col3:
+                    dim = st.slider("Max dimension (px)", 80, 256, 200, 16, key=f"{job}_dim")
 
         # apply clipping for visualisation
         loc_clip = np.minimum(loc_float, res_clip)
 
         if view == "2-D slices":
-            idx = col2.slider(
-                "Slice index", 0, min(loc.shape) - 1, (min(loc.shape) - 1) // 2, key=f"{job}_idx"
-            )
+            # idx is set above
             slices = _orthogonal_slices(loc_clip, idx)
             vmin, vmax = float(loc_clip.min()), float(loc_clip.max())
             if vmin == vmax:
@@ -225,25 +276,32 @@ def plot_locres(nodes: List[str], folder: str, job: str) -> None:
                 margin=dict(l=10, r=10, t=30, b=10),
                 height=600,
             )
-            
+
             st.plotly_chart(fig_s, use_container_width=True)
 
         else:  # 3-D
-            with col2:
-                thr = st.slider("Relative threshold", 0.05, 0.95, 0.5, 0.01, key=f"{job}_thr")
-            with col3:
-                dim = st.slider("Max dimension (px)", 80, 256, 200, 16, key=f"{job}_dim")
+            # thr, dim are set above
             with col4:
                 colours = st.selectbox(
                     "Colour scale",
-                    ("Turbo", "Viridis", "Cividis", "Plasma", "Inferno", "Haline"),
+                    ("Turbo", "Viridis", "Cividis", "Plasma", "Inferno", "Haline", "RdYlBu", "RdBu", "Jet", "Rainbow"),
                     index=0,
                     key=f"{job}_cmap",
                 )
 
+            white_bg = st.checkbox("White Background", key=f"{job}_bg")
+
             with st.spinner("Rendering 3-D view…"):
                 fig_iso = _plot_isosurface(raw, loc_clip, thr, max_size=dim, colourscale=colours)
             if fig_iso:
+                if white_bg:
+                    fig_iso.update_layout(
+                        paper_bgcolor="white",
+                        plot_bgcolor="white",
+                        scene=dict(bgcolor="white")
+                    )
+                    # Update text colors if needed for visibility
+                    fig_iso.update_layout(font=dict(color="black"))
                 st.plotly_chart(fig_iso, use_container_width=True)
 
         # ── histogram / KDE (use clipped values) ───────────────────────────
