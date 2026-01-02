@@ -403,164 +403,164 @@ def display_job_info(
         st.error(f"An unexpected error occurred while displaying job info: {exc}")
 
 
-# def create_network(
-#     pipeline_star: Dict[str, pd.DataFrame], orientation: str = "top-bottom"
-# ) -> Optional[str]:
-#     """
-#     Creates a Graphviz DOT language string for visualizing the job pipeline.
+def create_network(
+    pipeline_star: Dict[str, pd.DataFrame], orientation: str = "top-bottom"
+) -> Optional[str]:
+    """
+    Creates a Graphviz DOT language string for visualizing the job pipeline.
 
-#     Focuses on job-to-job connections with simplified node names and styling.
+    Focuses on job-to-job connections with simplified node names and styling.
 
-#     Args:
-#         pipeline_star: Dictionary from parsed pipeline.star, expecting
-#                        'pipeline_input_edges'.
-#         orientation: Layout direction ("top-bottom" or "left-right").
+    Args:
+        pipeline_star: Dictionary from parsed pipeline.star, expecting
+                       'pipeline_input_edges'.
+        orientation: Layout direction ("top-bottom" or "left-right").
 
-#     Returns:
-#         A string in Graphviz DOT format, or None if input is invalid or error occurs.
-#     """
-#     logger.info(f"Creating network graph with orientation: {orientation}")
-#     # --- Input Validation ---
-#     if (
-#         "pipeline_input_edges" not in pipeline_star
-#         or not isinstance(pipeline_star["pipeline_input_edges"], pd.DataFrame)
-#         or pipeline_star["pipeline_input_edges"].empty
-#     ):
-#         logger.error("Graph Creation Error: Missing or empty 'pipeline_input_edges' DataFrame.")
-#         # Optionally return a minimal DOT string indicating error?
-#         # return "digraph G { error [label=\"Invalid Input\"]; }"
-#         return None
+    Returns:
+        A string in Graphviz DOT format, or None if input is invalid or error occurs.
+    """
+    logger.info(f"Creating network graph with orientation: {orientation}")
+    # --- Input Validation ---
+    if (
+        "pipeline_input_edges" not in pipeline_star
+        or not isinstance(pipeline_star["pipeline_input_edges"], pd.DataFrame)
+        or pipeline_star["pipeline_input_edges"].empty
+    ):
+        logger.error("Graph Creation Error: Missing or empty 'pipeline_input_edges' DataFrame.")
+        # Optionally return a minimal DOT string indicating error?
+        # return "digraph G { error [label=\"Invalid Input\"]; }"
+        return None
 
-#     try:
-#         job_edges_df = pipeline_star["pipeline_input_edges"]
+    try:
+        job_edges_df = pipeline_star["pipeline_input_edges"]
 
-#         # --- Node Name Simplification ---
-#         def simplify_node_name(name):
-#             if isinstance(name, str):
-#                 # Keep only the first two parts (e.g., "Import/job001")
-#                 parts = name.split("/")
-#                 return "/".join(parts[:2]) if len(parts) >= 2 else name
-#             return str(name) # Handle non-string names gracefully
+        # --- Node Name Simplification ---
+        def simplify_node_name(name):
+            if isinstance(name, str):
+                # Keep only the first two parts (e.g., "Import/job001")
+                parts = name.split("/")
+                return "/".join(parts[:2]) if len(parts) >= 2 else name
+            return str(name) # Handle non-string names gracefully
 
-#         # Create simplified 'from' and 'to' columns
-#         edges = pd.DataFrame({
-#             'from_node': job_edges_df["_rlnPipeLineEdgeFromNode"].apply(simplify_node_name),
-#             'to_node': job_edges_df["_rlnPipeLineEdgeProcess"].apply(simplify_node_name)
-#         })
+        # Create simplified 'from' and 'to' columns
+        edges = pd.DataFrame({
+            'from_node': job_edges_df["_rlnPipeLineEdgeFromNode"].apply(simplify_node_name),
+            'to_node': job_edges_df["_rlnPipeLineEdgeProcess"].apply(simplify_node_name)
+        })
 
-#         # --- Edge Filtering (Focus on Job-to-Job connections) ---
-#         # Regex to match typical job format like "Word/word###"
-#         job_pattern = re.compile(r"^[A-Za-z0-9_]+/[a-zA-Z0-9_]+job\d+$")
-#         filtered_edges = []
-#         valid_job_nodes = set()
+        # --- Edge Filtering (Focus on Job-to-Job connections) ---
+        # Regex to match typical job format like "Word/word###"
+        job_pattern = re.compile(r"^[A-Za-z0-9_]+/[a-zA-Z0-9_]+job\d+$")
+        filtered_edges = []
+        valid_job_nodes = set()
 
-#         for _, row in edges.iterrows():
-#             src, dest = row["from_node"], row["to_node"]
-#             # Check if *both* source and destination look like job names
-#             # Adapt pattern if job naming scheme differs significantly
-#             if job_pattern.match(src) and job_pattern.match(dest):
-#                 filtered_edges.append((src, dest))
-#                 valid_job_nodes.add(src)
-#                 valid_job_nodes.add(dest)
+        for _, row in edges.iterrows():
+            src, dest = row["from_node"], row["to_node"]
+            # Check if *both* source and destination look like job names
+            # Adapt pattern if job naming scheme differs significantly
+            if job_pattern.match(src) and job_pattern.match(dest):
+                filtered_edges.append((src, dest))
+                valid_job_nodes.add(src)
+                valid_job_nodes.add(dest)
 
-#         if not filtered_edges:
-#             logger.warning("No valid job-to-job edges found to create network graph.")
-#             return None # Return None if no edges to draw
+        if not filtered_edges:
+            logger.warning("No valid job-to-job edges found to create network graph.")
+            return None # Return None if no edges to draw
 
-#         # --- Styling Dictionary (Graphviz attributes) ---
-#         # Using a slightly more subdued palette
-#         palette = {
-#             "red": "#F4B9B8", "orange": "#FAD5A5", "yellow": "#FDEDC4",
-#             "green": "#C8E6C9", "teal": "#B2DFDB", "cyan": "#B2EBF2",
-#             "blue": "#BBDEFB", "indigo": "#C5CAE9", "purple": "#D1C4E9",
-#             "pink": "#F8BBD0", "brown": "#D7CCC8", "grey": "#E0E0E0"
-#         }
-#         # Style definitions per job type
-#         job_type_styles_gv = {
-#             "Import": {"shape": "diamond", "fillcolor": palette["red"]},
-#             "MotionCorr": {"shape": "ellipse", "fillcolor": palette["orange"]},
-#             "CtfFind": {"shape": "ellipse", "fillcolor": palette["yellow"], "fontcolor": "#333"},
-#             "AutoPick": {"shape": "hexagon", "fillcolor": palette["cyan"], "fontcolor": "#333"},
-#             "ManualPick": {"shape": "hexagon", "fillcolor": palette["teal"], "fontcolor": "#333"},
-#             "Extract": {"shape": "invhouse", "fillcolor": palette["blue"]},
-#             "Select": {"shape": "ellipse", "fillcolor": palette["green"], "fontcolor": "#333"},
-#             "Class2D": {"shape": "box", "fillcolor": palette["grey"], "fontcolor": "#333"},
-#             "InitialModel": {"shape": "doublecircle", "fillcolor": palette["indigo"]},
-#             "Class3D": {"shape": "ellipse", "fillcolor": palette["purple"]},
-#             "Refine3D": {"shape": "ellipse", "fillcolor": palette["indigo"]},
-#             "MaskCreate": {"shape": "pentagon", "fillcolor": palette["pink"], "fontcolor": "#333"},
-#             "PostProcess": {"shape": "note", "fillcolor": palette["green"]},
-#             "CtfRefine": {"shape": "octagon", "fillcolor": palette["orange"]},
-#             "Polish": {"shape": "parallelogram", "fillcolor": palette["blue"]},
-#             "LocalRes": {"shape": "trapezium", "fillcolor": palette["purple"]},
-#             "ModelAngelo": {"shape": "ellipse", "fillcolor": palette["brown"]},
-#             "DynaMight": {"shape": "diamond", "fillcolor": palette["cyan"]},
-#              # Tomo additions (example styles)
-#             "ImportTomo": {"shape": "diamond", "fillcolor": palette["indigo"]},
-#             "AlignTiltSeries": {"shape": "parallelogram", "fillcolor": palette["purple"]},
-#             "ReconstructTomograms": {"shape": "hexagon", "fillcolor": palette["green"]},
-#             "Denoise": {"shape": "ellipse", "fillcolor": palette["teal"]},
-#             "Picks": {"shape": "hexagon", "fillcolor": palette["cyan"]},
-#             "PseudoSubtomo": {"shape": "invhouse", "fillcolor": palette["blue"]},
-#             "ReconstructParticleTomo": {"shape": "ellipse", "fillcolor": palette["purple"]},
-#             "CtfRefineTomo": {"shape": "octagon", "fillcolor": palette["orange"]},
-#             # Fallback style
-#             "default": {"shape": "box", "fillcolor": "#E8E8E8", "fontcolor": "#555"}
-#         }
-#         # Add default font color if missing
-#         for style in job_type_styles_gv.values():
-#             style.setdefault("fontcolor", "black") # Default to black font
-#             style.setdefault("color", style["fillcolor"]) # Border same as fill
+        # --- Styling Dictionary (Graphviz attributes) ---
+        # Using a slightly more subdued palette
+        palette = {
+            "red": "#F4B9B8", "orange": "#FAD5A5", "yellow": "#FDEDC4",
+            "green": "#C8E6C9", "teal": "#B2DFDB", "cyan": "#B2EBF2",
+            "blue": "#BBDEFB", "indigo": "#C5CAE9", "purple": "#D1C4E9",
+            "pink": "#F8BBD0", "brown": "#D7CCC8", "grey": "#E0E0E0"
+        }
+        # Style definitions per job type
+        job_type_styles_gv = {
+            "Import": {"shape": "diamond", "fillcolor": palette["red"]},
+            "MotionCorr": {"shape": "ellipse", "fillcolor": palette["orange"]},
+            "CtfFind": {"shape": "ellipse", "fillcolor": palette["yellow"], "fontcolor": "#333"},
+            "AutoPick": {"shape": "hexagon", "fillcolor": palette["cyan"], "fontcolor": "#333"},
+            "ManualPick": {"shape": "hexagon", "fillcolor": palette["teal"], "fontcolor": "#333"},
+            "Extract": {"shape": "invhouse", "fillcolor": palette["blue"]},
+            "Select": {"shape": "ellipse", "fillcolor": palette["green"], "fontcolor": "#333"},
+            "Class2D": {"shape": "box", "fillcolor": palette["grey"], "fontcolor": "#333"},
+            "InitialModel": {"shape": "doublecircle", "fillcolor": palette["indigo"]},
+            "Class3D": {"shape": "ellipse", "fillcolor": palette["purple"]},
+            "Refine3D": {"shape": "ellipse", "fillcolor": palette["indigo"]},
+            "MaskCreate": {"shape": "pentagon", "fillcolor": palette["pink"], "fontcolor": "#333"},
+            "PostProcess": {"shape": "note", "fillcolor": palette["green"]},
+            "CtfRefine": {"shape": "octagon", "fillcolor": palette["orange"]},
+            "Polish": {"shape": "parallelogram", "fillcolor": palette["blue"]},
+            "LocalRes": {"shape": "trapezium", "fillcolor": palette["purple"]},
+            "ModelAngelo": {"shape": "ellipse", "fillcolor": palette["brown"]},
+            "DynaMight": {"shape": "diamond", "fillcolor": palette["cyan"]},
+             # Tomo additions (example styles)
+            "ImportTomo": {"shape": "diamond", "fillcolor": palette["indigo"]},
+            "AlignTiltSeries": {"shape": "parallelogram", "fillcolor": palette["purple"]},
+            "ReconstructTomograms": {"shape": "hexagon", "fillcolor": palette["green"]},
+            "Denoise": {"shape": "ellipse", "fillcolor": palette["teal"]},
+            "Picks": {"shape": "hexagon", "fillcolor": palette["cyan"]},
+            "PseudoSubtomo": {"shape": "invhouse", "fillcolor": palette["blue"]},
+            "ReconstructParticleTomo": {"shape": "ellipse", "fillcolor": palette["purple"]},
+            "CtfRefineTomo": {"shape": "octagon", "fillcolor": palette["orange"]},
+            # Fallback style
+            "default": {"shape": "box", "fillcolor": "#E8E8E8", "fontcolor": "#555"}
+        }
+        # Add default font color if missing
+        for style in job_type_styles_gv.values():
+            style.setdefault("fontcolor", "black") # Default to black font
+            style.setdefault("color", style["fillcolor"]) # Border same as fill
 
-#         # --- Build DOT String ---
-#         rankdir = "TB" if orientation == "top-bottom" else "LR"
-#         nodesep = 0.1 if rankdir == "LR" else 0.05
-#         ranksep = 0.5 # Consistent rank separation
+        # --- Build DOT String ---
+        rankdir = "TB" if orientation == "top-bottom" else "LR"
+        nodesep = 0.1 if rankdir == "LR" else 0.05
+        ranksep = 0.5 # Consistent rank separation
 
-#         dot = [
-#             "digraph RelionPipeline {",
-#             "    bgcolor=transparent;",
-#             f"    rankdir={rankdir};",
-#             "    splines=ortho;      // Use orthogonal edges",
-#             "    overlap=false;      // Prevent node overlap",
-#             f"    nodesep={nodesep:.2f};",
-#             f"    ranksep={ranksep:.2f};",
-#             "    outputorder=edgesfirst;",
-#             "    node [style=\"filled\", fontname=\"Helvetica\", fontsize=9, margin=\"0.05,0.04\"];",
-#             "    edge [arrowsize=0.8, color=\"#888888\", penwidth=1.2];",
-#             "" # Newline before nodes
-#         ]
+        dot = [
+            "digraph RelionPipeline {",
+            "    bgcolor=transparent;",
+            f"    rankdir={rankdir};",
+            "    splines=ortho;      // Use orthogonal edges",
+            "    overlap=false;      // Prevent node overlap",
+            f"    nodesep={nodesep:.2f};",
+            f"    ranksep={ranksep:.2f};",
+            "    outputorder=edgesfirst;",
+            "    node [style=\"filled\", fontname=\"Helvetica\", fontsize=9, margin=\"0.05,0.04\"];",
+            "    edge [arrowsize=0.8, color=\"#888888\", penwidth=1.2];",
+            "" # Newline before nodes
+        ]
 
-#         # Define Nodes
-#         for node_name in sorted(list(valid_job_nodes)):
-#             job_type = node_name.split("/")[0]
-#             style = job_type_styles_gv.get(job_type, job_type_styles_gv["default"])
-#             # Label uses job number on new line
-#             label = node_name.replace("/", "\\n") # Use Graphviz newline
-#             node_id = f'"{node_name}"' # Quote node names
-#             tooltip = f"Job: {node_name}\\nType: {job_type}" # Tooltip for interactivity
+        # Define Nodes
+        for node_name in sorted(list(valid_job_nodes)):
+            job_type = node_name.split("/")[0]
+            style = job_type_styles_gv.get(job_type, job_type_styles_gv["default"])
+            # Label uses job number on new line
+            label = node_name.replace("/", "\\n") # Use Graphviz newline
+            node_id = f'"{node_name}"' # Quote node names
+            tooltip = f"Job: {node_name}\\nType: {job_type}" # Tooltip for interactivity
 
-#             dot.append(
-#                 f'    {node_id} [label="{label}", shape={style["shape"]}, '
-#                 f'fillcolor="{style["fillcolor"]}", color="{style["color"]}", '
-#                 f'fontcolor="{style["fontcolor"]}", tooltip="{tooltip}"];'
-#             )
+            dot.append(
+                f'    {node_id} [label="{label}", shape={style["shape"]}, '
+                f'fillcolor="{style["fillcolor"]}", color="{style["color"]}", '
+                f'fontcolor="{style["fontcolor"]}", tooltip="{tooltip}"];'
+            )
 
-#         # Define Edges
-#         dot.append("\n    // Edges")
-#         for src, dest in filtered_edges:
-#             dot.append(f'    "{src}" -> "{dest}";')
+        # Define Edges
+        dot.append("\n    // Edges")
+        for src, dest in filtered_edges:
+            dot.append(f'    "{src}" -> "{dest}";')
 
-#         dot.append("}")
-#         return "\n".join(dot)
+        dot.append("}")
+        return "\n".join(dot)
 
-#     except KeyError as e:
-#         report_error(KeyError(f"DOT Generation Error: Missing expected column: {e}"))
-#         return None
-#     except Exception as e:
-#         report_error(e, "Error generating DOT network graph.")
-#         return None
-    
+    except KeyError as e:
+        report_error(KeyError(f"DOT Generation Error: Missing expected column: {e}"))
+        return None
+    except Exception as e:
+        report_error(e, "Error generating DOT network graph.")
+        return None
+
 
 
 def create_network_agraph_data(pipeline_star: Dict[str, pd.DataFrame]):
@@ -662,9 +662,3 @@ def create_network_agraph_data(pipeline_star: Dict[str, pd.DataFrame]):
         report_error(e, "Error generating network graph data.")
 
     return nodes, edges
-
-def create_network(
-    pipeline_star: Dict[str, pd.DataFrame], orientation: str = "top-bottom"
-) -> Optional[str]:
-    # Placeholder for backward compatibility if needed, but we will switch to agraph in main app
-    pass

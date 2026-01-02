@@ -354,6 +354,12 @@ def main() -> None:
             help="Password to protect the instance",
             default="",
         )
+        parser.add_argument(
+            "--watchdog-interval",
+            type=int,
+            help="Interval in seconds for the watchdog polling loop",
+            default=2,
+        )
         args, _ = parser.parse_known_args()
 
         # --- Session State Initialization ---
@@ -519,80 +525,92 @@ def main() -> None:
             st.markdown("---")
             if selected_process == FLOWCHART_PROCESS:
                 st.title("Pipeline Flowchart")
+
+                chart_type = st.radio("Flowchart Type", ["Dynamic (Interactive)", "Static (Graphviz)"], horizontal=True)
+
                 if pipeline_star:
-                    nodes, edges = create_network_agraph_data(pipeline_star)
+                    if chart_type == "Dynamic (Interactive)":
+                        nodes, edges = create_network_agraph_data(pipeline_star)
 
-                    if nodes and edges:
-                        config = Config(width=800,
-                                        height=600,
-                                        directed=True,
-                                        nodeHighlightBehavior=True,
-                                        highlightColor="#F7A7A6", # or "blue"
-                                        collapsible=False,
-                                        node={'labelProperty': 'label'},
-                                        link={'labelProperty': 'label', 'renderLabel': False}
-                                        )
+                        if nodes and edges:
+                            config = Config(width=800,
+                                            height=600,
+                                            directed=True,
+                                            nodeHighlightBehavior=True,
+                                            highlightColor="#F7A7A6", # or "blue"
+                                            collapsible=False,
+                                            node={'labelProperty': 'label'},
+                                            link={'labelProperty': 'label', 'renderLabel': False},
+                                            hierarchical=True # Use hierarchical layout
+                                            )
 
-                        return_value = agraph(nodes=nodes,
-                                              edges=edges,
-                                              config=config)
+                            return_value = agraph(nodes=nodes,
+                                                  edges=edges,
+                                                  config=config)
 
-                        if return_value:
-                            # Assuming the return_value is the node ID
-                            selected_node_id = return_value
-                            logger.info(f"Node clicked in flowchart: {selected_node_id}")
+                            if return_value:
+                                # Assuming the return_value is the node ID
+                                selected_node_id = return_value
+                                logger.info(f"Node clicked in flowchart: {selected_node_id}")
 
-                            # Check if the clicked node is a job
-                            # The node ID format is expected to be "Type/JobName" or similar
-                            # We need to map this back to our selection logic
+                                # Check if the clicked node is a job
+                                # The node ID format is expected to be "Type/JobName" or similar
+                                # We need to map this back to our selection logic
 
-                            # Try to find the job in our known processes or jobs
-                            # Ideally, we should set the process and job.
+                                # Try to find the job in our known processes or jobs
+                                # Ideally, we should set the process and job.
 
-                            parts = selected_node_id.split('/')
-                            if len(parts) >= 2:
-                                potential_job_type = parts[0]
+                                parts = selected_node_id.split('/')
+                                if len(parts) >= 2:
+                                    potential_job_type = parts[0]
 
-                                # Check if it is a valid process type
-                                if potential_job_type in process_types:
-                                    StateManager.set_selected_process(potential_job_type)
-                                    StateManager.set_current_job(selected_node_id) # "Type/JobName" matches our job naming convention usually
+                                    # Check if it is a valid process type
+                                    if potential_job_type in process_types:
+                                        StateManager.set_selected_process(potential_job_type)
+                                        StateManager.set_current_job(selected_node_id) # "Type/JobName" matches our job naming convention usually
 
-                                    # Update radio buttons if possible, or just let the state drive the UI on rerun
-                                    # We need to update params too
-                                    StateManager.set_job_params({
-                                        "folder": current_folder,
-                                        "process": potential_job_type,
-                                    })
+                                        # Update radio buttons if possible, or just let the state drive the UI on rerun
+                                        # We need to update params too
+                                        StateManager.set_job_params({
+                                            "folder": current_folder,
+                                            "process": potential_job_type,
+                                        })
 
-                                    # Force radio updates by setting keys?
-                                    # Radio buttons use 'index' based on options.
-                                    # We updated the underlying state variables (SELECTED_PROCESS, CURRENT_JOB).
-                                    # The main loop logic "Determine current selection index..." should pick this up
-                                    # if we set the PROCESS_RADIO_KEY and JOB_RADIO_KEY.
+                                        # Force radio updates by setting keys?
+                                        # Radio buttons use 'index' based on options.
+                                        # We updated the underlying state variables (SELECTED_PROCESS, CURRENT_JOB).
+                                        # The main loop logic "Determine current selection index..." should pick this up
+                                        # if we set the PROCESS_RADIO_KEY and JOB_RADIO_KEY.
 
-                                    # Find display name for process
-                                    display_map = StateManager.get(STATE_DISPLAY_TO_ORIGINAL_PROCESS)
-                                    # Invert map: original -> display
-                                    original_to_display = {v: k for k, v in display_map.items()} if display_map else {}
+                                        # Find display name for process
+                                        display_map = StateManager.get(STATE_DISPLAY_TO_ORIGINAL_PROCESS)
+                                        # Invert map: original -> display
+                                        original_to_display = {v: k for k, v in display_map.items()} if display_map else {}
 
-                                    process_display = original_to_display.get(potential_job_type)
-                                    if process_display:
-                                        StateManager.set(STATE_PROCESS_RADIO_KEY, process_display)
+                                        process_display = original_to_display.get(potential_job_type)
+                                        if process_display:
+                                            StateManager.set(STATE_PROCESS_RADIO_KEY, process_display)
 
-                                    # Job radio key is usually the display name of the job (alias or name)
-                                    # We need to re-fetch the jobs list for this process to find the correct display key for this job ID
-                                    # This is a bit circular because we are inside the rendering loop.
-                                    # A rerun will handle the logic at the top of the script.
+                                        # Job radio key is usually the display name of the job (alias or name)
+                                        # We need to re-fetch the jobs list for this process to find the correct display key for this job ID
+                                        # This is a bit circular because we are inside the rendering loop.
+                                        # A rerun will handle the logic at the top of the script.
 
-                                    # However, to set the job radio correctly, we might need to pre-calculate.
-                                    # For now, setting selected_process and current_job is the core requirement.
+                                        # However, to set the job radio correctly, we might need to pre-calculate.
+                                        # For now, setting selected_process and current_job is the core requirement.
 
-                                    st.rerun()
-                                else:
-                                    st.warning(f"Selected node '{selected_node_id}' does not match a known process type.")
-                    else:
-                        st.warning("Could not generate flowchart data.")
+                                        st.rerun()
+                                    else:
+                                        st.warning(f"Selected node '{selected_node_id}' does not match a known process type.")
+                        else:
+                            st.warning("Could not generate flowchart data.")
+                    else: # Static Graphviz
+                        dot_source = create_network(pipeline_star, orientation="top-bottom")
+                        if dot_source:
+                            st.graphviz_chart(dot_source)
+                        else:
+                            st.warning("Could not generate static flowchart.")
+
                 else:
                     st.warning("Load a project first.")
 
@@ -713,7 +731,8 @@ def main() -> None:
             # However, blocking the script with a loop prevents other interactions.
             # A common pattern is `time.sleep(2); st.rerun()` but only if we are in a "live" mode.
 
-            time.sleep(2)
+            interval = args.watchdog_interval
+            time.sleep(interval)
             st.rerun()
         # --- Footer ---
         st.sidebar.markdown("---")
