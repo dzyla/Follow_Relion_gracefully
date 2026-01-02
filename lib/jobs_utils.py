@@ -449,23 +449,25 @@ def create_network(
         })
 
         # --- Edge Filtering (Focus on Job-to-Job connections) ---
-        # Regex to match typical job format like "Word/word###"
-        job_pattern = re.compile(r"^[A-Za-z0-9_]+/[a-zA-Z0-9_]+job\d+$")
+        # We assume standard RELION job format "Type/jobXXX" or similar
+        # Since the regex was too strict, we'll relax it to just check for a separator
         filtered_edges = []
         valid_job_nodes = set()
 
         for _, row in edges.iterrows():
             src, dest = row["from_node"], row["to_node"]
-            # Check if *both* source and destination look like job names
-            # Adapt pattern if job naming scheme differs significantly
-            if job_pattern.match(src) and job_pattern.match(dest):
+            # Basic check: Ensure both have a separator, implying Type/Name structure
+            # This restores the behavior of showing the graph even if naming isn't strictly standard
+            if "/" in src and "/" in dest:
                 filtered_edges.append((src, dest))
                 valid_job_nodes.add(src)
                 valid_job_nodes.add(dest)
 
         if not filtered_edges:
             logger.warning("No valid job-to-job edges found to create network graph.")
-            return None # Return None if no edges to draw
+            # Fallback: if no edges match the "/" pattern, maybe show all?
+            # But usually Relion jobs have the slash.
+            return None
 
         # --- Styling Dictionary (Graphviz attributes) ---
         # Using a slightly more subdued palette
