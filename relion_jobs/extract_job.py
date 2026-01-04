@@ -272,7 +272,6 @@ def display_particles(particle_list: List[Optional[np.ndarray]], particle_size: 
 # -----------------------------------------
 # Single-particle processing (SPA)
 # -----------------------------------------
-@st.fragment
 def show_random_particles(
     star_path: str,
     base_folder: str,
@@ -463,7 +462,6 @@ def detect_relion_version(star_df: pd.DataFrame) -> int:
     return 5
 
 
-@st.fragment
 def plot_relion4_pseudosubtomos(
     base_folder: str,
     star_df: pd.DataFrame,
@@ -570,7 +568,6 @@ def plot_relion4_pseudosubtomos(
         images_col.error("An error occurred displaying RELION 4 pseudo-subtomograms.")
 
 
-@st.fragment
 def plot_relion5_direct2d(
     base_folder: str,
     star_df: pd.DataFrame,
@@ -693,9 +690,7 @@ def plot_relion5_direct2d(
 @st.fragment
 def plot_pseudosubtomo(
     base_folder: str,
-    node_files: List[str],
-    controls_col: DeltaGenerator,
-    images_col: DeltaGenerator
+    node_files: List[str]
 ) -> None:
     """
     Main function to handle subtomogram/pseudo-subtomogram display based on RELION version.
@@ -703,22 +698,22 @@ def plot_pseudosubtomo(
     Args:
         base_folder (str): Path to the job folder.
         node_files (List[str]): List of files in the job folder.
-        controls_col (DeltaGenerator): Streamlit column for UI controls.
-        images_col (DeltaGenerator): Streamlit column for displaying images.
     """
-    particles_star_name: Optional[str] = None
-    for nf in node_files:
-        if PARTICLES_STAR in nf:
-            particles_star_name = nf
-            break
-
-    if not particles_star_name:
-        controls_col.warning(f"No '{PARTICLES_STAR}' file found. Cannot display subtomograms.")
-        return
-
-    particles_path = os.path.join(base_folder, particles_star_name)
-    particles_df: Optional[pd.DataFrame] = None
     try:
+        controls_col, images_col = st.columns([1, 4])
+        particles_star_name: Optional[str] = None
+        for nf in node_files:
+            if PARTICLES_STAR in nf:
+                particles_star_name = nf
+                break
+
+        if not particles_star_name:
+            controls_col.warning(f"No '{PARTICLES_STAR}' file found. Cannot display subtomograms.")
+            return
+
+        particles_path = os.path.join(base_folder, particles_star_name)
+        particles_df: Optional[pd.DataFrame] = None
+
         star_data = parse_star(particles_path)
         if not star_data or PARTICLES_KEY not in star_data:
              controls_col.warning(f"No '{PARTICLES_KEY}' data found in {particles_star_name}.")
@@ -787,14 +782,94 @@ def plot_pseudosubtomo(
             )
 
     except FileNotFoundError:
-        controls_col.error(f"Particles star file not found: {particles_path}")
+        st.error(f"Particles star file not found.")
     except KeyError as e:
-         report_error(e, f"Missing expected key '{PARTICLES_KEY}' in star file {particles_path}")
-         controls_col.error(f"Could not find '{PARTICLES_KEY}' data in {particles_star_name}.")
+         report_error(e, f"Missing expected key '{PARTICLES_KEY}' in star file")
+         st.error(f"Could not find '{PARTICLES_KEY}' data.")
     except Exception as e:
-         report_error(e, f"Error processing subtomograms from {particles_path}")
-         images_col.error("An unexpected error occurred while processing subtomograms.")
+         report_error(e, f"Error processing subtomograms")
+         st.error("An unexpected error occurred while processing subtomograms.")
 
+
+@st.fragment
+def display_spa_interface(star_file_path: str, base_folder: str) -> None:
+    try:
+        controls_col, right_col = st.columns([1, 4])
+        # Display random particles and get the DataFrame back
+        particles_df = show_random_particles(star_file_path, base_folder, controls_col, right_col)
+
+        if particles_df is not None and not particles_df.empty:
+            # --- Optional SPA Plots ---
+            if controls_col.checkbox("Show Detailed Stats Plots?", key=f"show_plots_{base_folder}"):
+                with right_col:
+                    st.markdown("---") # Separator
+                    st.subheader("Additional Statistics")
+                    plot_cols = particles_df.columns
+                    # FOM Histogram
+                    if RLN_AUTOPICK_FOM in plot_cols:
+                         fom_data = pd.to_numeric(particles_df[RLN_AUTOPICK_FOM], errors='coerce').dropna()
+                         if not fom_data.empty:
+                             chart = altair_histogram_fom(fom_data.values)
+                             if chart: st.altair_chart(chart, use_container_width=True)
+                             else: st.caption("Could not generate FOM histogram.")
+                         else: st.caption(f"No valid numeric data found for '{RLN_AUTOPICK_FOM}'.")
+                    else:
+                         st.caption(f"Column '{RLN_AUTOPICK_FOM}' not found for histogram.")
+
+                    # Particles per Micrograph Histogram & Line Plot
+                    if RLN_MICROGRAPH_NAME in plot_cols:
+                        try:
+                            counts = particles_df.groupby(RLN_MICROGRAPH_NAME).size()
+                            ppm_values = counts.values.tolist()
+                            micrograph_indices = list(range(len(counts)))
+
+                            if ppm_values:
+                                chart_hist = altair_histogram_particles_per_mic(ppm_values)
+                                if chart_hist: st.altair_chart(chart_hist, use_container_width=True)
+                                else: st.caption("Could not generate particles/micrograph histogram.")
+
+                                chart_line = altair_line_graph(micrograph_indices, ppm_values)
+                                if chart_line: st.altair_chart(chart_line, use_container_width=True)
+                                else: st.caption("Could not generate particles/micrograph line plot.")
+                            else:
+                                st.caption("No particle counts per micrograph calculated.")
+                        except Exception as e:
+                             report_error(e, "Error calculating or plotting particles per micrograph.")
+                             st.warning("Could not process particles per micrograph plots.")
+                    else:
+                         st.caption(f"Column '{RLN_MICROGRAPH_NAME}' not found for particles/micrograph plots.")
+
+                    # Defocus vs FOM Heatmap
+                    if RLN_DEFOCUS_U in plot_cols and RLN_AUTOPICK_FOM in plot_cols:
+                        def_u = pd.to_numeric(particles_df[RLN_DEFOCUS_U], errors='coerce')
+                        fom = pd.to_numeric(particles_df[RLN_AUTOPICK_FOM], errors='coerce')
+                        valid_idx = def_u.notna() & fom.notna()
+                        if valid_idx.any():
+                            chart = altair_heatmap_defocus_fom(def_u[valid_idx].values, fom[valid_idx].values)
+                            if chart: st.altair_chart(chart, use_container_width=True)
+                            else: st.caption("Could not generate Defocus vs FOM heatmap.")
+                        else:
+                            st.caption(f"No valid paired data for '{RLN_DEFOCUS_U}' and '{RLN_AUTOPICK_FOM}'.")
+                    else:
+                         st.caption(f"Missing '{RLN_DEFOCUS_U}' or '{RLN_AUTOPICK_FOM}' for heatmap.")
+
+            # --- Optional Interactive Plot ---
+            if controls_col.checkbox("Show Interactive Scatter Plot?", key=f"show_interactive_{base_folder}"):
+                 with right_col:
+                      try:
+                          interactive_scatter_plot(data_source=star_file_path)
+                      except Exception as e:
+                          report_error(e, f"Error calling interactive_scatter_plot for {star_file_path}")
+                          st.warning("Could not display the interactive scatter plot.")
+
+        elif particles_df is None:
+             # Error handled within show_random_particles
+             pass
+        else: # Empty DataFrame returned
+             right_col.info("No particle data loaded to generate plots.")
+    except Exception as e:
+        report_error(e, "Error in SPA interface display")
+        st.error("Error displaying SPA interface")
 
 # -----------------------------------------
 # Main Entry Point
@@ -812,9 +887,6 @@ def process_extract(base_folder: str, node_files: List[str]) -> None:
     """
     logger.info(f"Processing Extract job in folder: {base_folder}")
 
-    # Setup layout: controls on left, images/plots on right
-    controls_col, right_col = st.columns([1, 4]) # Adjust ratio as needed
-
     try:
         # Find the primary particles star file
         particles_star_file: Optional[str] = None
@@ -824,11 +896,10 @@ def process_extract(base_folder: str, node_files: List[str]) -> None:
              particles_star_file = next((f for f in node_files if PARTICLES_SUBTRACTED_STAR in f), None)
 
         if not particles_star_file:
-            controls_col.warning(f"**No '{PARTICLES_STAR}' or '{PARTICLES_SUBTRACTED_STAR}' file found.**")
+            st.warning(f"**No '{PARTICLES_STAR}' or '{PARTICLES_SUBTRACTED_STAR}' file found.**")
             logger.warning(f"No primary particle star file found in {base_folder}")
             return
 
-        controls_col.caption(f"Using: `{particles_star_file}`")
         star_file_path = os.path.join(base_folder, particles_star_file)
 
         # Detect if it's a tomography job (heuristic: presence of optimisation_set.star)
@@ -836,84 +907,10 @@ def process_extract(base_folder: str, node_files: List[str]) -> None:
 
         if is_tomo:
             logger.info("Tomography workflow detected.")
-            controls_col.markdown("### Tomography Particle Viewer")
-            plot_pseudosubtomo(base_folder, node_files, controls_col, right_col)
+            plot_pseudosubtomo(base_folder, node_files)
         else:
             logger.info("Single Particle Analysis workflow detected.")
-            controls_col.markdown("### SPA Particle Viewer")
-            # Display random particles and get the DataFrame back
-            particles_df = show_random_particles(star_file_path, base_folder, controls_col, right_col)
-
-            if particles_df is not None and not particles_df.empty:
-                # --- Optional SPA Plots ---
-                if controls_col.checkbox("Show Detailed Stats Plots?", key=f"show_plots_{base_folder}"):
-                    with right_col:
-                        st.markdown("---") # Separator
-                        st.subheader("Additional Statistics")
-                        plot_cols = particles_df.columns
-                        # FOM Histogram
-                        if RLN_AUTOPICK_FOM in plot_cols:
-                             fom_data = pd.to_numeric(particles_df[RLN_AUTOPICK_FOM], errors='coerce').dropna()
-                             if not fom_data.empty:
-                                 chart = altair_histogram_fom(fom_data.values)
-                                 if chart: st.altair_chart(chart, use_container_width=True)
-                                 else: st.caption("Could not generate FOM histogram.")
-                             else: st.caption(f"No valid numeric data found for '{RLN_AUTOPICK_FOM}'.")
-                        else:
-                             st.caption(f"Column '{RLN_AUTOPICK_FOM}' not found for histogram.")
-
-                        # Particles per Micrograph Histogram & Line Plot
-                        if RLN_MICROGRAPH_NAME in plot_cols:
-                            try:
-                                counts = particles_df.groupby(RLN_MICROGRAPH_NAME).size()
-                                ppm_values = counts.values.tolist()
-                                micrograph_indices = list(range(len(counts)))
-
-                                if ppm_values:
-                                    chart_hist = altair_histogram_particles_per_mic(ppm_values)
-                                    if chart_hist: st.altair_chart(chart_hist, use_container_width=True)
-                                    else: st.caption("Could not generate particles/micrograph histogram.")
-
-                                    chart_line = altair_line_graph(micrograph_indices, ppm_values)
-                                    if chart_line: st.altair_chart(chart_line, use_container_width=True)
-                                    else: st.caption("Could not generate particles/micrograph line plot.")
-                                else:
-                                    st.caption("No particle counts per micrograph calculated.")
-                            except Exception as e:
-                                 report_error(e, "Error calculating or plotting particles per micrograph.")
-                                 st.warning("Could not process particles per micrograph plots.")
-                        else:
-                             st.caption(f"Column '{RLN_MICROGRAPH_NAME}' not found for particles/micrograph plots.")
-
-                        # Defocus vs FOM Heatmap
-                        if RLN_DEFOCUS_U in plot_cols and RLN_AUTOPICK_FOM in plot_cols:
-                            def_u = pd.to_numeric(particles_df[RLN_DEFOCUS_U], errors='coerce')
-                            fom = pd.to_numeric(particles_df[RLN_AUTOPICK_FOM], errors='coerce')
-                            valid_idx = def_u.notna() & fom.notna()
-                            if valid_idx.any():
-                                chart = altair_heatmap_defocus_fom(def_u[valid_idx].values, fom[valid_idx].values)
-                                if chart: st.altair_chart(chart, use_container_width=True)
-                                else: st.caption("Could not generate Defocus vs FOM heatmap.")
-                            else:
-                                st.caption(f"No valid paired data for '{RLN_DEFOCUS_U}' and '{RLN_AUTOPICK_FOM}'.")
-                        else:
-                             st.caption(f"Missing '{RLN_DEFOCUS_U}' or '{RLN_AUTOPICK_FOM}' for heatmap.")
-
-                # --- Optional Interactive Plot ---
-                if controls_col.checkbox("Show Interactive Scatter Plot?", key=f"show_interactive_{base_folder}"):
-                     with right_col:
-                          try:
-                              interactive_scatter_plot(data_source=star_file_path)
-                          except Exception as e:
-                              report_error(e, f"Error calling interactive_scatter_plot for {star_file_path}")
-                              st.warning("Could not display the interactive scatter plot.")
-
-            elif particles_df is None:
-                 # Error handled within show_random_particles
-                 pass
-            else: # Empty DataFrame returned
-                 right_col.info("No particle data loaded to generate plots.")
-
+            display_spa_interface(star_file_path, base_folder)
 
     except Exception as e:
         # Catch-all for unexpected errors in the main logic
