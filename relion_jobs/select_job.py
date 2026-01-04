@@ -115,6 +115,7 @@ def create_plot_overlay(
     return fig
 
 
+@st.fragment
 def display_classes(
     class_path: Union[str, np.ndarray], # Can be path or actual data
     class_distribution: np.ndarray,
@@ -445,17 +446,17 @@ def display_classes(
             reset_download_state()
 
 
-
+@st.fragment
 def plot_combined_classes(volume_paths: List[str], class_dist: List[float]) -> None:
     """
     Display multiple 3D class volumes in a grid using Plotly subplots.
     Expects MRC file paths and a matching list of distribution percentages (0.0–1.0).
     """
-    logger.debug(
-        f"plot_combined_classes called with {len(volume_paths)} volume paths and distribution of length {len(class_dist)}"
-    )
-
     try:
+        logger.debug(
+            f"plot_combined_classes called with {len(volume_paths)} volume paths and distribution of length {len(class_dist)}"
+        )
+
         with st.expander("3D Volume Plotting Options :gear:", expanded=False):
             col1, col2 = st.columns(2)
             with col1:
@@ -760,6 +761,7 @@ def plot_micrograph_picks(
         return None, None
 
 
+@st.fragment
 def show_micrograph_picks_ui(
     particles_selected: pd.DataFrame,
     particles_source: pd.DataFrame,
@@ -780,61 +782,59 @@ def show_micrograph_picks_ui(
         section_label (str): Label for the index slider ('Micrograph index' or 'Tomogram index').
         col_ratios (list): Layout ratio for Streamlit columns.
     """
-    unique_mics = np.unique(particles_selected[micrograph_column])
-    if len(unique_mics) == 0:
-        st.write("No micrographs found.")
-        return
-
-    c1, c2 = st.columns(col_ratios)
-    file_idx = c1.slider(section_label, 0, len(unique_mics), 0)
-    gaussian_blur_sdev = c1.slider("Gaussian blur (sdev)", 0.0, 5.0, 0.2, 0.1)
-    marker_size = c1.slider("Marker size", 10, 300, 120, 10)
-    plot_as_points = c1.checkbox("Plot as points?", value=True)
-    show_picks = c1.checkbox("Show picks?", value=True)
-
-    st.write("Particles: :green[selected] :red[rejected]")
-    file_mic = os.path.join(folder, unique_mics[file_idx])
-
-    coords_sel = particles_selected[
-        particles_selected[micrograph_column] == unique_mics[file_idx]
-    ][["_rlnCoordinateX", "_rlnCoordinateY"]]
-    all_coords = particles_source[
-        particles_source[micrograph_column] == unique_mics[file_idx]
-    ][["_rlnCoordinateX", "_rlnCoordinateY"]]
-
-    merged_df = pd.merge(
-        all_coords,
-        coords_sel,
-        on=["_rlnCoordinateX", "_rlnCoordinateY"],
-        how="outer",
-        indicator=True,
-    )
-    coords_rej = merged_df[merged_df["_merge"] == "left_only"][["_rlnCoordinateX", "_rlnCoordinateY"]]
-
-    # Call your existing plot_micrograph_picks function, returning (matplotlib Figure, Altair chart).
-    fig_mic, fig_stats = plot_micrograph_picks(
-        file_mic,
-        file_idx,
-        coords_sel,
-        coords_rej,
-        show_picks,
-        gaussian_blur_sdev,
-        marker_size,
-        plot_as_points,
-    )
-
     try:
-        #if fig_mic is not None:
+        unique_mics = np.unique(particles_selected[micrograph_column])
+        if len(unique_mics) == 0:
+            st.write("No micrographs found.")
+            return
 
-        c2.pyplot(fig_mic, use_container_width=False)
+        c1, c2 = st.columns(col_ratios)
+        file_idx = c1.slider(section_label, 0, len(unique_mics), 0)
+        gaussian_blur_sdev = c1.slider("Gaussian blur (sdev)", 0.0, 5.0, 0.2, 0.1)
+        marker_size = c1.slider("Marker size", 10, 300, 120, 10)
+        plot_as_points = c1.checkbox("Plot as points?", value=True)
+        show_picks = c1.checkbox("Show picks?", value=True)
+
+        st.write("Particles: :green[selected] :red[rejected]")
+        file_mic = os.path.join(folder, unique_mics[file_idx])
+
+        coords_sel = particles_selected[
+            particles_selected[micrograph_column] == unique_mics[file_idx]
+        ][["_rlnCoordinateX", "_rlnCoordinateY"]]
+        all_coords = particles_source[
+            particles_source[micrograph_column] == unique_mics[file_idx]
+        ][["_rlnCoordinateX", "_rlnCoordinateY"]]
+
+        merged_df = pd.merge(
+            all_coords,
+            coords_sel,
+            on=["_rlnCoordinateX", "_rlnCoordinateY"],
+            how="outer",
+            indicator=True,
+        )
+        coords_rej = merged_df[merged_df["_merge"] == "left_only"][["_rlnCoordinateX", "_rlnCoordinateY"]]
+
+        # Call your existing plot_micrograph_picks function, returning (matplotlib Figure, Altair chart).
+        fig_mic, fig_stats = plot_micrograph_picks(
+            file_mic,
+            file_idx,
+            coords_sel,
+            coords_rej,
+            show_picks,
+            gaussian_blur_sdev,
+            marker_size,
+            plot_as_points,
+        )
+
+        if fig_mic is not None:
+            c2.pyplot(fig_mic, use_container_width=False)
+        if fig_stats is not None:
+            c1.altair_chart(fig_stats, use_container_width=True)
+
     except Exception as exc:
         report_error(exc)
-        logger.error("Error in plot_micrograph_picks: %s", exc)
-    try:
-        c1.altair_chart(fig_stats, use_container_width=True)
-    except Exception as exc:
-        report_error(exc)
-        logger.error("Error in Altair chart: %s", exc)
+        logger.error("Error in show_micrograph_picks_ui: %s", exc)
+        st.error("Error displaying micrograph picks UI.")
 
 
 

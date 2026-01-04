@@ -272,6 +272,7 @@ def display_particles(particle_list: List[Optional[np.ndarray]], particle_size: 
 # -----------------------------------------
 # Single-particle processing (SPA)
 # -----------------------------------------
+@st.fragment
 def show_random_particles(
     star_path: str,
     base_folder: str,
@@ -462,6 +463,7 @@ def detect_relion_version(star_df: pd.DataFrame) -> int:
     return 5
 
 
+@st.fragment
 def plot_relion4_pseudosubtomos(
     base_folder: str,
     star_df: pd.DataFrame,
@@ -472,12 +474,12 @@ def plot_relion4_pseudosubtomos(
     images_col: DeltaGenerator
 ):
     """Loads and displays RELION 4 pseudo-subtomograms and their CTFs."""
-    logger.info("Processing RELION 4 pseudo-subtomograms.")
-    if RLN_IMAGE_NAME not in star_df.columns:
-        images_col.warning(f"Missing column '{RLN_IMAGE_NAME}'. Cannot display pseudo-subtomograms.")
-        return
-
     try:
+        logger.info("Processing RELION 4 pseudo-subtomograms.")
+        if RLN_IMAGE_NAME not in star_df.columns:
+            images_col.warning(f"Missing column '{RLN_IMAGE_NAME}'. Cannot display pseudo-subtomograms.")
+            return
+
         selected_entries = star_df.iloc[selection_indices]
         pseudo_data_names = selected_entries[RLN_IMAGE_NAME].values.tolist()
 
@@ -568,6 +570,7 @@ def plot_relion4_pseudosubtomos(
         images_col.error("An error occurred displaying RELION 4 pseudo-subtomograms.")
 
 
+@st.fragment
 def plot_relion5_direct2d(
     base_folder: str,
     star_df: pd.DataFrame,
@@ -579,15 +582,15 @@ def plot_relion5_direct2d(
     images_col: DeltaGenerator
 ):
     """Loads and displays RELION 5 direct 2D stacks, potentially with tilt selection."""
-    logger.info("Processing RELION 5 direct 2D stacks.")
-    # RELION 5 might use _rlnImageStackName or fallback to _rlnImageName
-    image_col_name = RLN_IMAGE_STACK_NAME if RLN_IMAGE_STACK_NAME in star_df.columns else RLN_IMAGE_NAME
-
-    if image_col_name not in star_df.columns:
-        images_col.warning(f"Missing column '{image_col_name}'. Cannot display RELION 5 particles.")
-        return
-
     try:
+        logger.info("Processing RELION 5 direct 2D stacks.")
+        # RELION 5 might use _rlnImageStackName or fallback to _rlnImageName
+        image_col_name = RLN_IMAGE_STACK_NAME if RLN_IMAGE_STACK_NAME in star_df.columns else RLN_IMAGE_NAME
+
+        if image_col_name not in star_df.columns:
+            images_col.warning(f"Missing column '{image_col_name}'. Cannot display RELION 5 particles.")
+            return
+
         selected_entries = star_df.iloc[selection_indices]
         image_names = selected_entries[image_col_name].values.tolist()
         data_paths = [os.path.join(base_folder, name) for name in image_names if pd.notna(name)]
@@ -687,6 +690,7 @@ def plot_relion5_direct2d(
         images_col.error("An error occurred displaying RELION 5 particles.")
 
 
+@st.fragment
 def plot_pseudosubtomo(
     base_folder: str,
     node_files: List[str],

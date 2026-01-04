@@ -23,10 +23,10 @@ def plot_histogram_particles_per_mic(
 ) -> go.Figure:
     """
     Create a histogram of particles per micrograph.
-    
+
     Parameters:
         particles_per_mic: Series or array of particle counts.
-    
+
     Returns:
         A Plotly Figure.
     """
@@ -49,10 +49,10 @@ def plot_histogram_fom(
 ) -> go.Figure:
     """
     Create a histogram of autopick figure-of-merit.
-    
+
     Parameters:
         figure_of_merit: Series or array of FOM values.
-    
+
     Returns:
         A Plotly Figure.
     """
@@ -73,16 +73,16 @@ def plot_histogram_fom(
 def get_coord_paths(job_folder: str, rln_folder: str) -> Tuple[List[str], List[str]]:
     """
     Retrieve coordinate file paths and corresponding micrograph paths.
-    
+
     Checks in order:
         - autopick.star
         - manualpick.star
         - files matching "coords_suffix_*"
-    
+
     Parameters:
         job_folder (str): Path to the job folder.
         rln_folder (str): Base folder for micrographs.
-    
+
     Returns:
         A tuple (coord_paths, mics_paths).
     """
@@ -130,9 +130,6 @@ def get_coord_paths(job_folder: str, rln_folder: str) -> Tuple[List[str], List[s
         return [], []
 
 
-
-
-
 def plot_picks(
     rln_folder: str, job_name: str, img_resize_fac: float = 0.2
 ) -> None:
@@ -141,23 +138,23 @@ def plot_picks(
     Determines the coordinate source (autopick.star, manualpick.star, or coords_suffix_*)
     and passes the computed picks to micrograph_viewer (which now supports optional picks overlay).
     Also supports Topaz training statistics if no coordinate files are found.
-    
+
     Parameters:
         rln_folder (str): Base folder for job and micrograph data.
         job_name (str): Name of the job folder.
         img_resize_fac (float): Initial resize factor.
-    
+
     Returns:
         None.
     """
-    
+
     logger.debug(f"{datetime.now()}: plot_picks started with job_name: {job_name}")
     try:
         path_data = os.path.join(rln_folder, job_name)
         coord_paths, mics_paths = get_coord_paths(path_data, job_name)
-        
+
         logger.debug(f"coord_paths: {coord_paths}")
-        
+
         # Fallback for Topaz training statistics.
         if not coord_paths:
             topaz_training_files = glob.glob(os.path.join(path_data, "model_training.txt"))
@@ -189,42 +186,60 @@ def plot_picks(
             st.write("No coordinate files found.")
             logger.info(f"{datetime.now()}: plot_picks_streamlit done (No coordinate files)")
             return
-        
-        # Select a micrograph.
+
+        display_picking_interface(rln_folder, job_name, mics_paths, coord_paths)
+
+        logger.info(f"{datetime.now()}: plot_picks_streamlit done")
+    except Exception as exc:
+        report_error(exc)
+        logger.error(f"Error in plot_picks_streamlit: {exc}")
+        st.error("An error occurred during picks visualization.")
+
+@st.fragment
+def display_picking_interface(rln_folder: str, job_name: str, mics_paths: List[str], coord_paths: List[str]) -> None:
+    try:
         col1, col2 = st.columns([1, 3])
-        
+
         # For autopick data (non-manual), get FOM slider and compute picks overlay.
         if "ManualPick" not in job_name:
-            # problem with indexing and passing it to micrograph_viewer######
-            
-            
             plot_all = col1.checkbox("Plot FOM statistics? (Might be slow for huge datasets)", value=False)
             fom_all_mics = []
             tmp_file_path = None
             if plot_all:
                 coords_df = pd.DataFrame()
-                for idx in range(len(mics_paths)):
-                    try:
-                        star_data = parse_star(os.path.join(rln_folder, coord_paths[idx]))
-                        star_data = list(star_data.values())[0]
-                        star_data["_rlnMicrographName"] = mics_paths[idx]
-                        coords_df = pd.concat([coords_df, star_data], ignore_index=True)
-                        fom_stats = star_data["_rlnAutopickFigureOfMerit"].astype(float)
-                        fom_all_mics.extend(fom_stats)
-                    except Exception as exc:
-                        report_error(exc)
-                        logger.error(f"Error processing picking stats for micrograph index {idx}")
-                modified_star = star_from_df({"particles": coords_df})
-                with tempfile.NamedTemporaryFile(delete=False, suffix=".star") as tmp_file:
-                    modified_star.write_file(tmp_file.name)
-                tmp_file_path = tmp_file.name
+                # Consider limiting this loop or using st.spinner if large
+                with st.spinner("Processing all coordinate files for statistics..."):
+                    for idx in range(len(mics_paths)):
+                        try:
+                            # Construct full path for parsing
+                            full_coord_path = os.path.join(rln_folder, coord_paths[idx])
+                            if os.path.exists(full_coord_path):
+                                star_data_dict = parse_star(full_coord_path)
+                                # Assuming single block or taking the first one
+                                star_data = list(star_data_dict.values())[0] if star_data_dict else pd.DataFrame()
+
+                                if not star_data.empty:
+                                    star_data["_rlnMicrographName"] = mics_paths[idx]
+                                    coords_df = pd.concat([coords_df, star_data], ignore_index=True)
+                                    if "_rlnAutopickFigureOfMerit" in star_data.columns:
+                                        fom_stats = star_data["_rlnAutopickFigureOfMerit"].astype(float)
+                                        fom_all_mics.extend(fom_stats)
+                        except Exception as exc:
+                            report_error(exc)
+                            logger.error(f"Error processing picking stats for micrograph index {idx}")
+
+                if not coords_df.empty:
+                    modified_star = star_from_df({"particles": coords_df})
+                    # Use a known path in temp dir to avoid permissions issues or cleanup
+                    with tempfile.NamedTemporaryFile(delete=False, suffix=".star") as tmp_file:
+                        modified_star.write_file(tmp_file.name)
+                        tmp_file_path = tmp_file.name
         else:
-            fom_slider = [-10000, 10000]
-            picks_overlay = None
             plot_all = False
+            fom_all_mics = []
+            tmp_file_path = None
 
         # Use micrograph_viewer to display the micrograph with picks overlay.
-        # If picks_overlay is None, micrograph_viewer behaves as before.
         micrograph_viewer(
             rln_folder=rln_folder,
             image_files=mics_paths,
@@ -238,11 +253,17 @@ def plot_picks(
             fom_all_mics = np.array(fom_all_mics)
             fom_histogram_fig = plot_histogram_fom(fom_all_mics)
             col2.plotly_chart(fom_histogram_fig, use_container_width=True)
-            
+
             if st.checkbox("Show detailed statistics?") and tmp_file_path:
                 interactive_scatter_plot(tmp_file_path)
 
-        logger.info(f"{datetime.now()}: plot_picks_streamlit done")
+            # Cleanup temp file if created
+            if tmp_file_path and os.path.exists(tmp_file_path):
+                # We might want to keep it if interactive_scatter_plot needs it later?
+                # interactive_scatter_plot probably loads it into memory or session state.
+                # If it relies on path existence across reruns, we should be careful.
+                # For now, let's leave it or implement a cleanup mechanism in session state.
+                pass
     except Exception as exc:
         report_error(exc)
-        logger.error("Error in plot_picks_streamlit function.")
+        st.error("Error displaying picking interface.")
