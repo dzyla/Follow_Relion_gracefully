@@ -1154,7 +1154,7 @@ def _micrograph_viewer_impl(
             "clip": (1.0, 99.0),
             "contrast": "None",
             "gamma": 1.0,
-            "display_mode": "Micrograph only",
+            "display_mode": "Fourier Power Spectrum",
             "slice_plane": "XY",
             "show_average": False,
             "display_picks": True,
