@@ -7,7 +7,7 @@ from typing import List
 import streamlit as st
 import pandas as pd
 
-from lib.utils import parse_star, get_values_from_first_key, report_error
+from lib.utils import parse_star, get_values_from_first_key, report_error, interactive_scatter_plot
 
 logger = logging.getLogger("main_app")
 
@@ -64,7 +64,16 @@ def plot_align_tilt_series(rln_folder: str, node_file: str) -> None:
             st.warning("No tilt-series data found. Cannot plot tilt angles.")
             return
 
-        # TODO: Implement plotting logic here using dfs_tilt
+        try:
+            combined_df = pd.concat(dfs_tilt, ignore_index=True)
+            interactive_scatter_plot(
+                data_source={"TiltSeriesData": combined_df},
+                title_prefix="AlignTilt"
+            )
+        except Exception as e:
+            logger.error("Error combining or plotting tilt series data: %s", e)
+            st.error("Failed to combine tilt series data for plotting.")
+
     except Exception as exc:
         report_error(exc, "Unexpected error in plot_align_tilt_series")
         st.warning("An unexpected error occurred while plotting tilt series.")
