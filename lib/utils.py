@@ -1203,6 +1203,16 @@ def interactive_scatter_plot(
     # 4. DATA PREP (Datashader vs Plotly decision)
     use_datashader = n_rows > 50000 and plot_type == "2D Scatter" and coord_system == "Cartesian"
 
+    # Determine if we should use WebGL (go.Scattergl)
+    # Datashader is preferred for huge datasets (>50k by default or user preference)
+    # Scattergl is preferred for intermediate datasets (e.g. 10k - 50k/100k)
+    # Scatter is for small datasets (<10k)
+
+    use_webgl = False
+    if not use_datashader and n_rows > 10000:
+        use_webgl = True
+        st.info("Using WebGL for improved performance (10k-50k points).")
+
     if use_datashader:
         st.info("Large dataset detected (>50k rows). Using Datashader for high-performance rendering.")
 
@@ -1403,10 +1413,23 @@ def interactive_scatter_plot(
                     )
                     if log_y: fig.update_layout(polar_radialaxis_type="log")
                 else:
-                    fig = px.scatter(
-                        df, x=x_sel, y=y_sel, color=colour_col_to_plot,
-                        title=title, **plot_kwargs
-                    )
+                    if use_webgl:
+                        # Use go.Scattergl manually since px.scatter doesn't always expose it easily via args
+                        # Construct trace manually or use px and update traces
+                        fig = px.scatter(
+                            df, x=x_sel, y=y_sel, color=colour_col_to_plot,
+                            title=title, **plot_kwargs
+                        )
+                        # Switch to Scattergl
+                        fig.update_traces(mode='markers') # Ensure markers mode
+                        for data in fig.data:
+                            data.type = 'scattergl'
+                    else:
+                        fig = px.scatter(
+                            df, x=x_sel, y=y_sel, color=colour_col_to_plot,
+                            title=title, **plot_kwargs
+                        )
+
                     if log_x: fig.update_xaxes(type="log")
                     if log_y: fig.update_yaxes(type="log")
 

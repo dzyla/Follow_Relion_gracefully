@@ -133,7 +133,7 @@ def display_classes(
         job_string = match.group(0) if match else hash(str(class_path)) # Fallback identifier
 
         logger.debug(f"Job string for display_classes: {job_string}. Raw data star: {raw_data_star}")
-        
+
         # --- State Keys ---
         # Key for the set of selected class *indices* (original indices before sorting)
         selection_state_key = f"selected_indices_{job_string}"
@@ -161,7 +161,11 @@ def display_classes(
         classes = load_classes(class_path) # Replace with actual load/cache logic
         class_distribution = np.asarray(class_distribution).astype(float) # Ensure numpy array
 
-        if classes is None or len(classes) != len(class_distribution):
+        if classes is None or len(classes) == 0:
+             st.warning("No class averages found or empty file.")
+             return
+
+        if len(classes) != len(class_distribution):
              st.error("Mismatch between number of classes and distribution data, or failed to load classes.")
              logger.error(f"Class/Distribution mismatch: {len(classes) if classes is not None else 'None'} vs {len(class_distribution)}")
              return
@@ -211,43 +215,80 @@ def display_classes(
         cols = container.columns(dynamic_columns, gap="small")
         selection_changed_in_loop = False
 
-        for display_idx, original_class_idx in enumerate(sorted_indices):
+        # Pagination/Lazy Loading for 2D classes
+        MAX_CLASSES_PER_PAGE = 200
+        total_pages = (len(sorted_indices) + MAX_CLASSES_PER_PAGE - 1) // MAX_CLASSES_PER_PAGE
+
+        current_page = 0
+        if total_pages > 1:
+            current_page = st.number_input("Page", min_value=1, max_value=total_pages, value=1) - 1
+
+        start_idx = current_page * MAX_CLASSES_PER_PAGE
+        end_idx = min((current_page + 1) * MAX_CLASSES_PER_PAGE, len(sorted_indices))
+
+        visible_indices = sorted_indices[start_idx:end_idx]
+
+        for display_idx, original_class_idx in enumerate(visible_indices):
             col = cols[display_idx % dynamic_columns]
             with col:
-                 # Normalize class image for display
-                 img_normalized = normalize(classes[original_class_idx])
-                 # Prepare overlay text
-                 overlay_txt = f"Class {original_class_idx+1} | {class_distribution[original_class_idx]*100:.2f}%" # Use 1-based index for display?
-                 img_fig = create_plot_overlay(
-                     img_normalized, overlay_txt, display_width=image_width, font_size=8
-                 )
+                 try:
+                     if original_class_idx >= len(classes):
+                         st.warning(f"Index {original_class_idx} out of bounds")
+                         continue
 
-                 checkbox_key = f"select_class_{job_string}_{original_class_idx}"
-                 # Current checked status based on session state
-                 is_checked_in_state = original_class_idx in st.session_state[selection_state_key]
+                     class_data = classes[original_class_idx]
+                     if class_data is None or class_data.size == 0:
+                         st.warning(f"Class {original_class_idx+1}: Empty data")
+                         continue
 
-                 # Render checkbox first
-                 new_checked_value = st.checkbox(
-                     f"Select Class {original_class_idx+1}", # Hidden label, but good for debugging
-                     value=is_checked_in_state,
-                     key=checkbox_key,
-                     label_visibility="hidden" # Keep label hidden in UI
-                 )
+                     # Normalize class image for display
+                     img_normalized = normalize(class_data)
 
-                 # Render image below checkbox
-                 st.pyplot(img_fig, use_container_width=True, clear_figure=True)
-                 plt.close(img_fig) # Explicitly close figure to save memory
+                     dist_val = 0.0
+                     if original_class_idx < len(class_distribution):
+                         dist_val = class_distribution[original_class_idx]
 
-                 # --- Update session state based on checkbox interaction ---
-                 # This check runs *after* the checkbox is rendered and potentially interacted with
-                 if new_checked_value != is_checked_in_state:
-                     if new_checked_value:
-                         st.session_state[selection_state_key].add(original_class_idx)
-                     else:
-                         st.session_state[selection_state_key].discard(original_class_idx)
-                     # If the selection changed via checkbox, reset download state and flag rerun
-                     reset_download_state()
-                     selection_changed_in_loop = True
+                     # Prepare overlay text
+                     overlay_txt = f"Class {original_class_idx+1} | {dist_val*100:.2f}%"
+                     img_fig = create_plot_overlay(
+                         img_normalized, overlay_txt, display_width=image_width, font_size=8
+                     )
+
+                     checkbox_key = f"select_class_{job_string}_{original_class_idx}"
+                     is_checked_in_state = original_class_idx in st.session_state[selection_state_key]
+
+                     new_checked_value = st.checkbox(
+                         f"Select Class {original_class_idx+1}",
+                         value=is_checked_in_state,
+                         key=checkbox_key,
+                         label_visibility="hidden"
+                     )
+
+                     # Render image below checkbox
+                     # Optimized: Convert Matplotlib figure to image array
+                     try:
+                         img_fig.canvas.draw()
+                         # Use buffer_rgba() as tostring_rgb() is removed in Matplotlib 3.8+
+                         width, height = img_fig.canvas.get_width_height()
+                         img_array = np.frombuffer(img_fig.canvas.buffer_rgba(), dtype=np.uint8).reshape(height, width, 4)
+                         # Use first 3 channels (RGB), ignoring Alpha
+                         st.image(img_array[:, :, :3], use_container_width=True)
+                     finally:
+                         plt.close(img_fig) # Explicitly close figure to save memory
+
+                     # --- Update session state based on checkbox interaction ---
+                     # This check runs *after* the checkbox is rendered and potentially interacted with
+                     if new_checked_value != is_checked_in_state:
+                         if new_checked_value:
+                             st.session_state[selection_state_key].add(original_class_idx)
+                         else:
+                             st.session_state[selection_state_key].discard(original_class_idx)
+                         # If the selection changed via checkbox, reset download state and flag rerun
+                         reset_download_state()
+                         selection_changed_in_loop = True
+                 except Exception as e:
+                     logger.error(f"Error displaying class {original_class_idx}: {e}")
+                     st.error("Error displaying class")
 
 
         # If any checkbox changed the state, rerun to ensure consistency and hide download button
@@ -784,7 +825,7 @@ def show_micrograph_picks_ui(
 
     try:
         #if fig_mic is not None:
-            
+
         c2.pyplot(fig_mic, use_container_width=False)
     except Exception as exc:
         report_error(exc)
@@ -880,7 +921,7 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
                     section_label="Micrograph index",
                     col_ratios=[1, 4],
                 )
-                
+
 
             except Exception as exc:
                 report_error(exc)
@@ -942,7 +983,7 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
             fig_pie.update_traces(hoverinfo="label+percent+value", textinfo="percent+value")
             st.plotly_chart(fig_pie)
             st.divider()
-            
+
 
             # Identify selected classes
             try:
@@ -973,7 +1014,7 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
                 plot_combined_classes(class_paths, class_dist)
 
                 st.divider()
-                
+
                 # Distinguish SPA vs Tomography
                 if "_rlnTomoName" not in particles_source.columns:
                     show_micrograph_picks_ui(
@@ -987,15 +1028,15 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
                 else:
                     # Tomography job: 3D picks
                     unique_mics = np.unique(particles_selected["_rlnTomoName"])
-                    
+
                     col1, col2 = st.container().columns([1, 4])
                     file_idx = col1.slider("Tomogram index", 0, len(unique_mics)-1, 0)
 
                     logger.debug(f'particles_selected: {particles_selected}')
-                    
+
                     file_tomo = os.path.join(FOLDER, unique_mics[file_idx])
                     logger.debug(f"file_tomo: {file_tomo}")
-                    
+
                     try:
                         coords_sel = particles_selected[
                             particles_selected["_rlnTomoName"] == unique_mics[file_idx]
@@ -1013,7 +1054,7 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
                         coords_rej = merged_df[merged_df["_merge"] == "left_only"][
                             ["_rlnCoordinateX", "_rlnCoordinateY", "_rlnCoordinateZ"]
                         ]
-                        
+
                     except KeyError:
                         try:
                             coords_sel = particles_selected[
@@ -1022,7 +1063,7 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
                             all_coords = particles_source[
                                 particles_source["_rlnTomoName"] == unique_mics[file_idx]
                             ][["_rlnCenteredCoordinateXAngst", "_rlnCenteredCoordinateYAngst", "_rlnCenteredCoordinateZAngst"]]
-                            
+
                             merged_df = pd.merge(
                                     all_coords,
                                     coords_sel,
@@ -1033,14 +1074,14 @@ def plot_selection(node_files: list, FOLDER: str, job_name: str) -> None:
                             coords_rej = merged_df[merged_df["_merge"] == "left_only"][
                                 ["_rlnCenteredCoordinateXAngst", "_rlnCenteredCoordinateYAngst", "_rlnCenteredCoordinateZAngst"]
                             ]
-                            
-                            
+
+
                         except Exception as exc:
                             report_error(exc)
                             logger.error(f"Error: {exc}")
                             st.write("No coordinates found for this tomogram.")
                             return
-                    
+
                     col1.markdown(f"**Tomogram:** `{unique_mics[file_idx]}`")
                     fig_tomo = plot_tomogram_picks(file_tomo, file_idx, coords_sel, coords_rej)
                     if fig_tomo is not None:
