@@ -8,6 +8,7 @@ import streamlit as st
 import pandas as pd
 
 from lib.utils import parse_star, get_values_from_first_key, report_error, interactive_scatter_plot
+from lib.image_utils import micrograph_viewer
 
 logger = logging.getLogger("main_app")
 
@@ -70,6 +71,52 @@ def plot_align_tilt_series(rln_folder: str, node_file: str) -> None:
                 data_source={"TiltSeriesData": combined_df},
                 title_prefix="AlignTilt"
             )
+
+            st.markdown("---")
+            st.subheader("Tilt Series Preview")
+
+            # Group by Tilt Series (using FileSource or _rlnTomoName if available)
+            # FileSource is reliable as it comes from the loop above
+            ts_options = combined_df["FileSource"].unique().tolist()
+
+            if not ts_options:
+                st.info("No tilt series identifiers found.")
+            else:
+                selected_ts = st.selectbox("Select Tilt Series to preview:", ts_options)
+
+                # Filter data for selected TS
+                ts_data = combined_df[combined_df["FileSource"] == selected_ts].copy()
+
+                # Ensure we have image paths
+                if "_rlnMicrographName" in ts_data.columns:
+                    image_col = "_rlnMicrographName"
+                elif "_rlnImageName" in ts_data.columns:
+                     image_col = "_rlnImageName"
+                else:
+                    image_col = None
+                    st.warning("Column for image paths (e.g., _rlnMicrographName) not found.")
+
+                if image_col:
+                    # Sort by Tilt Angle if available
+                    if "_rlnTomoTiltAngle" in ts_data.columns:
+                        ts_data["_rlnTomoTiltAngle"] = pd.to_numeric(ts_data["_rlnTomoTiltAngle"], errors='coerce')
+                        ts_data = ts_data.sort_values("_rlnTomoTiltAngle")
+
+                    # Get list of images
+                    image_paths = ts_data[image_col].tolist()
+
+                    if image_paths:
+                        st.info(f"Loaded {len(image_paths)} images for {selected_ts}. Sorted by tilt angle.")
+                        # Use the existing efficient micrograph viewer
+                        micrograph_viewer(
+                            rln_folder=rln_folder,
+                            image_files=image_paths,
+                            selected_filter="gaussian",
+                            default_gaussian=0.0
+                        )
+                    else:
+                        st.warning("No image paths found for this tilt series.")
+
         except Exception as e:
             logger.error("Error combining or plotting tilt series data: %s", e)
             st.error("Failed to combine tilt series data for plotting.")
