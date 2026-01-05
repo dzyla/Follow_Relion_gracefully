@@ -6,6 +6,7 @@ from typing import List
 
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 
 from lib.utils import parse_star, get_values_from_first_key, report_error, interactive_scatter_plot
 from lib.image_utils import micrograph_viewer
@@ -67,13 +68,6 @@ def plot_align_tilt_series(rln_folder: str, node_file: str) -> None:
 
         try:
             combined_df = pd.concat(dfs_tilt, ignore_index=True)
-            interactive_scatter_plot(
-                data_source={"TiltSeriesData": combined_df},
-                title_prefix="AlignTilt"
-            )
-
-            st.markdown("---")
-            st.subheader("Tilt Series Preview")
 
             # Group by Tilt Series (using FileSource or _rlnTomoName if available)
             # FileSource is reliable as it comes from the loop above
@@ -82,40 +76,79 @@ def plot_align_tilt_series(rln_folder: str, node_file: str) -> None:
             if not ts_options:
                 st.info("No tilt series identifiers found.")
             else:
-                selected_ts = st.selectbox("Select Tilt Series to preview:", ts_options)
+                col1, col2 = st.columns([1, 3])
 
-                # Filter data for selected TS
-                ts_data = combined_df[combined_df["FileSource"] == selected_ts].copy()
+                with col1:
+                    selected_ts = st.selectbox("Select Tilt Series:", ts_options)
 
-                # Ensure we have image paths
-                if "_rlnMicrographName" in ts_data.columns:
-                    image_col = "_rlnMicrographName"
-                elif "_rlnImageName" in ts_data.columns:
-                     image_col = "_rlnImageName"
-                else:
-                    image_col = None
-                    st.warning("Column for image paths (e.g., _rlnMicrographName) not found.")
+                with col2:
+                    # Filter data for selected TS
+                    ts_data = combined_df[combined_df["FileSource"] == selected_ts].copy()
 
-                if image_col:
-                    # Sort by Tilt Angle if available
-                    if "_rlnTomoTiltAngle" in ts_data.columns:
-                        ts_data["_rlnTomoTiltAngle"] = pd.to_numeric(ts_data["_rlnTomoTiltAngle"], errors='coerce')
-                        ts_data = ts_data.sort_values("_rlnTomoTiltAngle")
-
-                    # Get list of images
-                    image_paths = ts_data[image_col].tolist()
-
-                    if image_paths:
-                        st.info(f"Loaded {len(image_paths)} images for {selected_ts}. Sorted by tilt angle.")
-                        # Use the existing efficient micrograph viewer
-                        micrograph_viewer(
-                            rln_folder=rln_folder,
-                            image_files=image_paths,
-                            selected_filter="gaussian",
-                            default_gaussian=0.0
-                        )
+                    # Ensure we have image paths
+                    if "_rlnMicrographName" in ts_data.columns:
+                        image_col = "_rlnMicrographName"
+                    elif "_rlnImageName" in ts_data.columns:
+                         image_col = "_rlnImageName"
                     else:
-                        st.warning("No image paths found for this tilt series.")
+                        image_col = None
+                        st.warning("Column for image paths (e.g., _rlnMicrographName) not found.")
+
+                    if image_col:
+                        # Sort by Tilt Angle if available
+                        if "_rlnTomoTiltAngle" in ts_data.columns:
+                            ts_data["_rlnTomoTiltAngle"] = pd.to_numeric(ts_data["_rlnTomoTiltAngle"], errors='coerce')
+                            ts_data = ts_data.sort_values("_rlnTomoTiltAngle")
+
+                        # Get list of images
+                        image_paths = ts_data[image_col].tolist()
+
+                        if image_paths:
+                            st.info(f"Loaded {len(image_paths)} images for {selected_ts}. Sorted by tilt angle.")
+                            # Use the existing efficient micrograph viewer
+                            micrograph_viewer(
+                                rln_folder=rln_folder,
+                                image_files=image_paths,
+                                selected_filter="gaussian",
+                                default_gaussian=0.0
+                            )
+                        else:
+                            st.warning("No image paths found for this tilt series.")
+
+                    # Alignment Statistics Plot
+                    st.markdown("---")
+                    st.subheader("Tilt Alignment Statistics")
+
+                    if "_rlnTomoTiltAngle" in ts_data.columns:
+                        fig = go.Figure()
+
+                        # Helper to add trace if column exists
+                        def add_trace(col_name, color, name):
+                            if col_name in ts_data.columns:
+                                fig.add_trace(go.Scatter(
+                                    x=ts_data["_rlnTomoTiltAngle"],
+                                    y=ts_data[col_name],
+                                    mode="markers",
+                                    marker=dict(color=color, size=10),
+                                    name=name
+                                ))
+
+                        add_trace("_rlnTomoXTilt", "#007acc", "X Tilt")
+                        add_trace("_rlnTomoYTilt", "#cc3333", "Y Tilt")
+                        add_trace("_rlnTomoZRot", "#ffd354", "Z Rot")
+                        add_trace("_rlnTomoXShiftAngst", "#b850c8", "X Shift (Å)")
+                        add_trace("_rlnTomoYShiftAngst", "#45ab84", "Y Shift (Å)")
+
+                        fig.update_layout(
+                            title=f"Alignment Stats: {selected_ts}",
+                            xaxis_title="Tilt Angle (deg)",
+                            yaxis_title="Value",
+                            hovermode="x unified",
+                            height=600
+                        )
+                        st.plotly_chart(fig, use_container_width=True)
+                    else:
+                        st.warning("Tilt angle data not available for plotting.")
 
         except Exception as e:
             logger.error("Error combining or plotting tilt series data: %s", e)

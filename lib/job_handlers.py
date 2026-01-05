@@ -117,7 +117,7 @@ class ExcludeTiltImagesJob(RelionJob):
 
 class AlignTiltSeriesJob(RelionJob):
     def execute(self, folder: str, node_files: List[str], selected_job: str = ""):
-        plot_exclude_tilt(folder, node_files[0])
+        plot_align_tilt_series(folder, node_files[0])
 
 class ReconstructTomogramsJob(RelionJob):
     def execute(self, folder: str, node_files: List[str], selected_job: str = ""):
