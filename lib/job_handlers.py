@@ -21,6 +21,7 @@ from relion_jobs.postprocess_job import plot_postprocess
 from relion_jobs.select_job import plot_selection
 from relion_jobs.tomo_pick_job import plot_pick_tomo
 from relion_jobs.tomograms_job import plot_tomographs
+from relion_jobs.aligntilt_job import plot_align_tilt_series
 from lib.utils import report_error
 
 logger = logging.getLogger("main_app")
@@ -117,7 +118,7 @@ class ExcludeTiltImagesJob(RelionJob):
 
 class AlignTiltSeriesJob(RelionJob):
     def execute(self, folder: str, node_files: List[str], selected_job: str = ""):
-        plot_exclude_tilt(folder, node_files[0])
+        plot_align_tilt_series(folder, node_files[0])
 
 class ReconstructTomogramsJob(RelionJob):
     def execute(self, folder: str, node_files: List[str], selected_job: str = ""):

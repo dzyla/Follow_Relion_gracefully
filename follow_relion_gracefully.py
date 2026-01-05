@@ -63,6 +63,7 @@ from lib.utils import (  # Assuming these are correctly defined in utils
     interactive_scatter_plot,
     parse_star,
     render_svg,
+    get_git_commit_hash,
     report_error,  # Use the central report_error
 )
 from lib.state import StateManager
@@ -396,7 +397,13 @@ def main() -> None:
                 st.stop()
 
         # --- UI Rendering & Folder Selection ---
-        render_svg("./static/frg.svg")
+        st.logo(image="./static/frg.svg")
+
+        # Display git commit hash in the sidebar
+        commit_hash = get_git_commit_hash()
+        if commit_hash:
+            st.sidebar.caption(f"Commit: {commit_hash}")
+
         footer = get_footer()
         create_temp_directory()
 
@@ -526,7 +533,7 @@ def main() -> None:
             if selected_process == FLOWCHART_PROCESS:
                 st.title("Pipeline Flowchart")
 
-                chart_type = st.radio("Flowchart Type", ["Dynamic (Interactive)", "Static (Graphviz)"], horizontal=True)
+                chart_type = st.radio("Flowchart Type", ["Dynamic (Interactive)", "Static (Graphviz)"], horizontal=True, index=1)
 
                 if pipeline_star:
                     if chart_type == "Dynamic (Interactive)":

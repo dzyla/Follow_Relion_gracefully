@@ -9,6 +9,7 @@ import os
 import re
 import tempfile
 import traceback
+import subprocess
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
@@ -239,6 +240,32 @@ def get_modification_time(file_path: str) -> Optional[datetime]:
     else:
         logger.warning(f"File not found for timestamp check: {file_path}")
         return None
+
+
+def get_git_commit_hash(short: bool = True) -> str:
+    """
+    Retrieves the current git commit hash.
+
+    Args:
+        short: If True, returns the short hash. If False, returns the full hash.
+
+    Returns:
+        The git commit hash as a string, or an empty string if retrieval fails.
+    """
+    try:
+        args = ["git", "rev-parse", "HEAD"]
+        if short:
+            args.insert(2, "--short")
+
+        # Run git command
+        commit_hash = subprocess.check_output(args, stderr=subprocess.DEVNULL).decode("utf-8").strip()
+        return commit_hash
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        logger.warning("Failed to retrieve git commit hash.")
+        return ""
+    except Exception as exc:
+        logger.error(f"Unexpected error retrieving git commit hash: {exc}")
+        return ""
 
 
 def get_subfolders(parent_folder: str, job_type: str) -> List[str]:
