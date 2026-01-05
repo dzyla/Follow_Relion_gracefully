@@ -533,7 +533,7 @@ def main() -> None:
             if selected_process == FLOWCHART_PROCESS:
                 st.title("Pipeline Flowchart")
 
-                chart_type = st.radio("Flowchart Type", ["Dynamic (Interactive)", "Static (Graphviz)"], horizontal=True)
+                chart_type = st.radio("Flowchart Type", ["Dynamic (Interactive)", "Static (Graphviz)"], horizontal=True, index=1)
 
                 if pipeline_star:
                     if chart_type == "Dynamic (Interactive)":

@@ -38,12 +38,12 @@ def plot_align_tilt_series(rln_folder: str, node_file: str) -> None:
             st.warning("Failed to parse the main star file.")
             return
 
-        if "global" not in star:
+        if "global" not in star.keys():
             logger.error("Missing 'global' section in star file: %s", star_path)
             st.warning("The star file does not contain a 'global' section.")
             return
 
-        tomo_files = star["global"].get("_rlnTomoTiltSeriesStarFile", [])
+        tomo_files = star["global"]["_rlnTomoTiltSeriesStarFile"].to_list()
         if not isinstance(tomo_files, list) or not tomo_files:
             logger.error("No tilt-series references found in 'global' section.")
             st.warning("No tilt-series data found in the star file.")
@@ -76,57 +76,55 @@ def plot_align_tilt_series(rln_folder: str, node_file: str) -> None:
             if not ts_options:
                 st.info("No tilt series identifiers found.")
             else:
-                col1, col2 = st.columns([1, 3])
+                selected_ts = st.selectbox("Select Tilt Series:", ts_options)
 
-                with col1:
-                    selected_ts = st.selectbox("Select Tilt Series:", ts_options)
+                # Filter data for selected TS
+                ts_data = combined_df[combined_df["FileSource"] == selected_ts].copy()
 
-                with col2:
-                    # Filter data for selected TS
-                    ts_data = combined_df[combined_df["FileSource"] == selected_ts].copy()
+                # Ensure we have image paths
+                if "_rlnMicrographName" in ts_data.columns:
+                    image_col = "_rlnMicrographName"
+                elif "_rlnImageName" in ts_data.columns:
+                        image_col = "_rlnImageName"
+                else:
+                    image_col = None
+                    st.warning("Column for image paths (e.g., _rlnMicrographName) not found.")
 
-                    # Ensure we have image paths
-                    if "_rlnMicrographName" in ts_data.columns:
-                        image_col = "_rlnMicrographName"
-                    elif "_rlnImageName" in ts_data.columns:
-                         image_col = "_rlnImageName"
+                if image_col:
+                    # Sort by Tilt Angle if available
+                    if "_rlnTomoTiltAngle" in ts_data.columns:
+                        ts_data["_rlnTomoTiltAngle"] = pd.to_numeric(ts_data["_rlnTomoTiltAngle"], errors='coerce')
+                        ts_data = ts_data.sort_values("_rlnTomoTiltAngle")
+
+                    # Get list of images
+                    image_paths = ts_data[image_col].tolist()
+
+                    if image_paths:
+                        st.info(f"Loaded {len(image_paths)} images for {selected_ts}. Sorted by tilt angle.")
+                        # Use the existing efficient micrograph viewer
+                        micrograph_viewer(
+                            rln_folder=rln_folder,
+                            image_files=image_paths,
+                            selected_filter="gaussian",
+                            default_gaussian=0.0
+                        )
                     else:
-                        image_col = None
-                        st.warning("Column for image paths (e.g., _rlnMicrographName) not found.")
-
-                    if image_col:
-                        # Sort by Tilt Angle if available
-                        if "_rlnTomoTiltAngle" in ts_data.columns:
-                            ts_data["_rlnTomoTiltAngle"] = pd.to_numeric(ts_data["_rlnTomoTiltAngle"], errors='coerce')
-                            ts_data = ts_data.sort_values("_rlnTomoTiltAngle")
-
-                        # Get list of images
-                        image_paths = ts_data[image_col].tolist()
-
-                        if image_paths:
-                            st.info(f"Loaded {len(image_paths)} images for {selected_ts}. Sorted by tilt angle.")
-                            # Use the existing efficient micrograph viewer
-                            micrograph_viewer(
-                                rln_folder=rln_folder,
-                                image_files=image_paths,
-                                selected_filter="gaussian",
-                                default_gaussian=0.0
-                            )
-                        else:
-                            st.warning("No image paths found for this tilt series.")
+                        st.warning("No image paths found for this tilt series.")
 
                     # Alignment Statistics Plot
                     st.markdown("---")
                     st.subheader("Tilt Alignment Statistics")
 
-                    if "_rlnTomoTiltAngle" in ts_data.columns:
+                    logger.debug("Preparing alignment statistics plot for tilt series: %s", ts_data.columns)
+
+                    if "_rlnTomoNominalStageTiltAngle" in ts_data.columns:
                         fig = go.Figure()
 
                         # Helper to add trace if column exists
                         def add_trace(col_name, color, name):
                             if col_name in ts_data.columns:
                                 fig.add_trace(go.Scatter(
-                                    x=ts_data["_rlnTomoTiltAngle"],
+                                    x=ts_data["_rlnTomoNominalStageTiltAngle"],
                                     y=ts_data[col_name],
                                     mode="markers",
                                     marker=dict(color=color, size=10),
@@ -144,9 +142,10 @@ def plot_align_tilt_series(rln_folder: str, node_file: str) -> None:
                             xaxis_title="Tilt Angle (deg)",
                             yaxis_title="Value",
                             hovermode="x unified",
-                            height=600
+                            height=600,
+                            width=900,
                         )
-                        st.plotly_chart(fig, use_container_width=True)
+                        st.plotly_chart(fig, use_container_width=False)
                     else:
                         st.warning("Tilt angle data not available for plotting.")
 
